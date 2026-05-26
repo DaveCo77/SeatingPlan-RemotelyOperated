@@ -240,9 +240,11 @@ const firebaseConfig = {
         // 3. CORE CLOUD PUSH FUNCTION
         // ---------------------------------------------------------
         // This replaces the old localStorage logic
-        function pushUpdate(key, value) { 
-            db.ref('seating_charts/' + currentEventId + '/' + key).set(value);
-        }
+// Replace your existing pushUpdate function with this:
+function pushUpdate(key, value) { 
+    if (!currentEventId) return alert("Please connect to an Event ID first.");
+    db.ref('seating_charts/' + currentEventId + '/' + key).set(value);
+}
 
         // --- Event Listeners ---
         document.getElementById('fontSelect').addEventListener('change', (e) => pushUpdate('mh_font', e.target.value));
