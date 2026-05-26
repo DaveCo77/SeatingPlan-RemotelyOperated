@@ -42,8 +42,8 @@
             overflow-x: hidden;
         }
 
-        body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out; }
-        body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out; }
+        body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
         body.idle-mode .search-container input  { border-color: rgba(255,255,255,0.5); animation: borderPulse 4s infinite ease-in-out; }
         body.idle-mode .nav-btn,
         body.idle-mode .page-indicators         { opacity: 0.1; transition: opacity 2s ease-in-out; }
@@ -121,7 +121,22 @@
         .kb-key.action-clear { background: rgba(179,0,0,0.3); }
         .kb-key.action-close { background: rgba(0,86,179,0.4); }
 
-        #main-content-container { width: 100%; display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
+        /* ── THE FUCKERY: Dynamic Scaling ── */
+        #main-content-container { 
+            width: 100%; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            flex-grow: 1; 
+            transform-origin: top center;
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease-in-out;
+        }
+
+        body.kb-open #main-content-container {
+            transform: scale(0.65);
+            /* Prevents long pages from overlapping the keyboard even while scaled */
+            margin-bottom: 350px; 
+        }
 
         .seating-page {
             width: 100%; margin-bottom: 3rem;
@@ -270,7 +285,7 @@
 
         let guests           = [];
         let lastGuestJson    = null;
-        let lastTablesPerPage = 15;
+        let lastTablesPerPage = 15; 
         let currentLayout    = 'layout-grid';
         let tablesPerPage    = 15;
         let loopIntervalMs   = 8000;
@@ -380,7 +395,6 @@
                 items.forEach(item => item.classList.remove('highlight', 'fade', 'hidden'));
                 document.querySelectorAll('.dot').forEach(d => d.style.display = 'block');
                 
-                // Revert to showing only the current page instead of all pages
                 showPage(currentPageIndex);
                 startLoop();
                 return;
@@ -407,11 +421,9 @@
                 d.style.display = pagesWithMatches.has(i) ? 'block' : 'none';
             });
 
-            // Automatically jump to the first page that contains a match, 
-            // rather than displaying all pages at once
-            if (pagesWithMatches.size > 0) {
-                const firstMatchPage = Math.min(...Array.from(pagesWithMatches));
-                showPage(firstMatchPage);
+            // Automatically jump to the first page that contains a match
+            if (pagesWithMatches.size > 0 && !pagesWithMatches.has(currentPageIndex)) {
+                showPage(Math.min(...Array.from(pagesWithMatches)));
             }
         }
 
@@ -455,13 +467,14 @@
         });
 
         // ─────────────────────────────────────────────
-        // 7. IDLE / INTERACTION
+        // 7. IDLE / INTERACTION & KEYBOARD STATES
         // ─────────────────────────────────────────────
         function resetKbIdleTimer() {
             clearTimeout(kbIdleTimer);
             if (keyboard.classList.contains('active')) {
                 kbIdleTimer = setTimeout(() => {
                     keyboard.classList.remove('active');
+                    document.body.classList.remove('kb-open');
                     searchInput.value = '';
                     applySearch();
                     startLoop();
@@ -479,6 +492,7 @@
             idleTimer = setTimeout(() => {
                 searchInput.value = '';
                 keyboard.classList.remove('active');
+                document.body.classList.remove('kb-open');
                 applySearch();
                 showPage(0);
                 startLoop();
@@ -488,7 +502,9 @@
                 }
             }, idleTimeoutMs);
 
-            startLoop();
+            if (!keyboard.classList.contains('active')) {
+                startLoop();
+            }
         }
 
         window.addEventListener('touchstart', handleInteraction);
@@ -500,6 +516,7 @@
         // ─────────────────────────────────────────────
         searchInput.addEventListener('click', () => {
             keyboard.classList.add('active');
+            document.body.classList.add('kb-open');
             handleInteraction();
             clearInterval(loopTimer);
         });
@@ -529,6 +546,7 @@
         });
         document.getElementById('kb-close').addEventListener('click', () => {
             keyboard.classList.remove('active');
+            document.body.classList.remove('kb-open');
             searchInput.value = '';
             applySearch();
             showPage(0);
@@ -539,6 +557,7 @@
             if (e.key === 'Escape') {
                 searchInput.value = '';
                 keyboard.classList.remove('active');
+                document.body.classList.remove('kb-open');
                 applySearch();
                 showPage(0);
                 startLoop();
