@@ -25,6 +25,8 @@
             --top-clearance: 25vh;
         }
 
+        *, *::before, *::after { box-sizing: border-box; }
+
         body, html {
             margin: 0; padding: 0; min-height: 100vh;
             font-family: var(--font-main);
@@ -32,22 +34,16 @@
             text-shadow: 0px 4px 15px rgba(0,0,0,0.9), 0px 1px 3px rgba(0,0,0,0.8);
             transition: color 0.3s, font-family 0.3s;
             background-color: var(--bg-color);
-            /* ── Background image: place your JPEG alongside this HTML file ── */
+            /* FIX: background-size cover + 100vw/100vh ensures full bleed on any screen */
             background-image: url('QLD_Forum%20SeatplanBackground.jpg');
             background-size: cover;
-            background-position: center;
+            background-position: center center;
             background-repeat: no-repeat;
             background-attachment: fixed;
             overflow-x: hidden;
         }
 
-        .display-area {
-            display: flex; flex-direction: column; align-items: center;
-            padding: var(--top-clearance) 3rem 3rem 3rem;
-            max-width: 1400px; margin: 0 auto;
-        }
-
-        /* ── Idle / active mode ── */
+        /* FIX: Idle dims only the content, not the whole body so bg stays visible */
         body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out; }
         body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out; }
         body.idle-mode .search-container input  { border-color: rgba(255,255,255,0.5); animation: borderPulse 4s infinite ease-in-out; }
@@ -62,11 +58,20 @@
             100% { box-shadow: 0 0 0   rgba(255,255,255,0); }
         }
 
-        /* ── Floorplan (shown when uploaded) ── */
+        /* FIX: display-area is a normal flow column — keyboard pushes content down naturally */
+        .display-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: var(--top-clearance) 3rem 3rem 3rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+
         #floorplan-container { display: none; margin-bottom: 2rem; width: 100%; text-align: center; }
         #floorplan-display   { max-height: 500px; max-width: 100%; border: 2px solid var(--text-color); object-fit: contain; }
 
-        /* ── Header ── */
         .chart-header {
             text-align: center; margin-bottom: 2rem;
             display: flex; align-items: center; justify-content: center; gap: 2rem;
@@ -75,10 +80,10 @@
 
         /* ── Search bar ── */
         .search-container {
-            width: 100%; max-width: 800px; text-align: center;
-            margin: 0 auto 4rem auto;
+            width: 100%; max-width: 800px;
+            margin: 0 auto 2rem auto;
             position: relative;
-            z-index: 1000;
+            z-index: 100;
         }
 
         #searchInput {
@@ -91,6 +96,36 @@
         }
         #searchInput::placeholder { color: var(--text-color); opacity: 0.7; }
         #searchInput:focus { border-color: var(--highlight); background: rgba(0,0,0,0.85); }
+
+        /* ── FIX: Keyboard is in normal document flow BELOW the search bar,
+           not position:absolute — so it pushes the table content down ── */
+        #custom-keyboard {
+            width: 100%; max-width: 800px;
+            margin: 0 auto 2rem auto;
+            background: rgba(15,15,15,0.95);
+            padding: 20px; border-radius: 12px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            display: none;   /* toggled to flex when active */
+            flex-direction: column; align-items: center; gap: 10px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #custom-keyboard.active { display: flex; }
+
+        .kb-row { display: flex; justify-content: center; gap: 8px; width: 100%; max-width: 1000px; }
+
+        .kb-key {
+            background: rgba(255,255,255,0.1); color: #fff;
+            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
+            padding: 20px 0; font-size: 1.4rem; font-family: var(--font-main);
+            cursor: pointer; flex-grow: 1; flex-basis: 0;
+            user-select: none; transition: all 0.1s;
+        }
+        .kb-key:active      { background: rgba(255,255,255,0.3); transform: scale(0.95); }
+        .kb-key.wide        { flex-grow: 2; font-size: 1.1rem; letter-spacing: 1px; font-weight: bold; }
+        .kb-key.space       { flex-grow: 6; }
+        .kb-key.action-clear { background: rgba(179,0,0,0.3); }
+        .kb-key.action-close { background: rgba(0,86,179,0.4); }
 
         /* ── Main seating content ── */
         #main-content-container { width: 100%; display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
@@ -109,7 +144,6 @@
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ── Table groups ── */
         .table-group { text-align: center; margin-bottom: 2rem; break-inside: avoid; page-break-inside: avoid; }
         .table-group h3 {
             font-size: var(--table-size);
@@ -119,7 +153,6 @@
         }
         .table-group ul { list-style: none; padding: 0; margin: 0; line-height: 1.8; font-size: var(--guest-size); transition: font-size 0.3s; }
 
-        /* ── Guest items ── */
         .guest-item {
             transition: all 0.2s; padding: 0.5rem 0; border-radius: 4px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -127,16 +160,14 @@
         .guest-name    { font-weight: normal; }
         .guest-details { font-size: 0.65em; opacity: 0.7; margin-top: 2px; text-transform: uppercase; letter-spacing: 1px; }
 
-        /* Search highlight / fade states */
         .guest-item.highlight {
             background-color: var(--highlight); color: var(--highlight-text);
             transform: scale(1.05); box-shadow: 0 8px 25px rgba(0,0,0,0.9);
         }
         .guest-item.highlight .guest-name { font-weight: bold; }
-        .guest-item.fade    { opacity: 0.2; }
-        .guest-item.hidden  { display: none; }
+        .guest-item.fade   { opacity: 0.2; }
+        .guest-item.hidden { display: none; }
 
-        /* ── Page indicators ── */
         .page-indicators { display: flex; gap: 15px; margin-top: 2rem; align-items: center; }
         .dot {
             width: 16px; height: 16px; border-radius: 50%;
@@ -146,11 +177,10 @@
         .dot:hover  { background: rgba(255,255,255,0.6); transform: scale(1.1); }
         .dot.active { background: var(--text-color); transform: scale(1.3); box-shadow: 0 0 10px rgba(255,255,255,0.5); }
 
-        /* ── Nav arrows ── */
         .nav-btn {
             position: fixed; top: 50%; transform: translateY(-50%);
             font-size: 3rem; color: rgba(255,255,255,0.3);
-            cursor: pointer; padding: 2rem; z-index: 100;
+            cursor: pointer; padding: 2rem; z-index: 200;
             transition: all 0.3s; user-select: none;
             display: none;
         }
@@ -158,40 +188,6 @@
         .nav-btn:active { transform: translateY(-50%) scale(0.9); }
         .nav-btn.left  { left: 1rem; }
         .nav-btn.right { right: 1rem; }
-
-        /* ── On-screen keyboard — drops down from search bar ── */
-        #custom-keyboard {
-            position: absolute;
-            top: calc(100% + 15px);
-            left: 0; width: 100%;
-            background: rgba(15,15,15,0.95);
-            padding: 20px; border-radius: 12px;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
-            display: flex; flex-direction: column; align-items: center; gap: 10px;
-            backdrop-filter: blur(15px);
-            border: 1px solid rgba(255,255,255,0.1);
-            box-sizing: border-box;
-            /* Hidden state */
-            opacity: 0; visibility: hidden; transform: translateY(-20px);
-            transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-            z-index: 200;
-        }
-        #custom-keyboard.active { opacity: 1; visibility: visible; transform: translateY(0); }
-
-        .kb-row { display: flex; justify-content: center; gap: 8px; width: 100%; max-width: 1000px; }
-
-        .kb-key {
-            background: rgba(255,255,255,0.1); color: #fff;
-            border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
-            padding: 20px 0; font-size: 1.4rem; font-family: var(--font-main);
-            cursor: pointer; flex-grow: 1; flex-basis: 0;
-            user-select: none; transition: all 0.1s;
-        }
-        .kb-key:active      { background: rgba(255,255,255,0.3); transform: scale(0.95); }
-        .kb-key.wide        { flex-grow: 2; font-size: 1.1rem; letter-spacing: 1px; font-weight: bold; }
-        .kb-key.space       { flex-grow: 6; }
-        .kb-key.action-clear { background: rgba(179,0,0,0.3); }
-        .kb-key.action-close { background: rgba(0,86,179,0.4); }
     </style>
 </head>
 <body class="active-mode">
@@ -210,37 +206,39 @@
             <h1>Seating Chart</h1>
         </div>
 
-        <!-- Search bar + keyboard dropdown (keyboard is a child so it inherits position:relative) -->
-        <div class="search-container" id="search-wrapper">
+        <!-- Search bar -->
+        <div class="search-container">
             <input type="text" id="searchInput" placeholder="TAP HERE TO SEARCH YOUR NAME" readonly>
+        </div>
 
-            <div id="custom-keyboard">
-                <div class="kb-row">
-                    <button class="kb-key">Q</button><button class="kb-key">W</button>
-                    <button class="kb-key">E</button><button class="kb-key">R</button>
-                    <button class="kb-key">T</button><button class="kb-key">Y</button>
-                    <button class="kb-key">U</button><button class="kb-key">I</button>
-                    <button class="kb-key">O</button><button class="kb-key">P</button>
-                </div>
-                <div class="kb-row" style="width:95%">
-                    <button class="kb-key">A</button><button class="kb-key">S</button>
-                    <button class="kb-key">D</button><button class="kb-key">F</button>
-                    <button class="kb-key">G</button><button class="kb-key">H</button>
-                    <button class="kb-key">J</button><button class="kb-key">K</button>
-                    <button class="kb-key">L</button>
-                </div>
-                <div class="kb-row" style="width:90%">
-                    <button class="kb-key">Z</button><button class="kb-key">X</button>
-                    <button class="kb-key">C</button><button class="kb-key">V</button>
-                    <button class="kb-key">B</button><button class="kb-key">N</button>
-                    <button class="kb-key">M</button>
-                    <button class="kb-key wide" id="kb-backspace">DELETE</button>
-                </div>
-                <div class="kb-row">
-                    <button class="kb-key wide action-clear" id="kb-clear">CLEAR</button>
-                    <button class="kb-key space"             id="kb-space">SPACE</button>
-                    <button class="kb-key wide action-close" id="kb-close">DONE</button>
-                </div>
+        <!-- FIX: Keyboard is now OUTSIDE search-container, sits in normal flow.
+             When it appears it pushes table content downward naturally. -->
+        <div id="custom-keyboard">
+            <div class="kb-row">
+                <button class="kb-key">Q</button><button class="kb-key">W</button>
+                <button class="kb-key">E</button><button class="kb-key">R</button>
+                <button class="kb-key">T</button><button class="kb-key">Y</button>
+                <button class="kb-key">U</button><button class="kb-key">I</button>
+                <button class="kb-key">O</button><button class="kb-key">P</button>
+            </div>
+            <div class="kb-row" style="width:95%">
+                <button class="kb-key">A</button><button class="kb-key">S</button>
+                <button class="kb-key">D</button><button class="kb-key">F</button>
+                <button class="kb-key">G</button><button class="kb-key">H</button>
+                <button class="kb-key">J</button><button class="kb-key">K</button>
+                <button class="kb-key">L</button>
+            </div>
+            <div class="kb-row" style="width:90%">
+                <button class="kb-key">Z</button><button class="kb-key">X</button>
+                <button class="kb-key">C</button><button class="kb-key">V</button>
+                <button class="kb-key">B</button><button class="kb-key">N</button>
+                <button class="kb-key">M</button>
+                <button class="kb-key wide" id="kb-backspace">DELETE</button>
+            </div>
+            <div class="kb-row">
+                <button class="kb-key wide action-clear" id="kb-clear">CLEAR</button>
+                <button class="kb-key space"             id="kb-space">SPACE</button>
+                <button class="kb-key wide action-close" id="kb-close">DONE</button>
             </div>
         </div>
 
@@ -274,25 +272,26 @@
         // ─────────────────────────────────────────────
         // 2. STATE
         // ─────────────────────────────────────────────
-        const root               = document.documentElement;
-        const searchInput        = document.getElementById('searchInput');
-        const mainContainer      = document.getElementById('main-content-container');
-        const indicatorsContainer= document.getElementById('page-indicators');
-        const keyboard           = document.getElementById('custom-keyboard');
+        const root                = document.documentElement;
+        const searchInput         = document.getElementById('searchInput');
+        const mainContainer       = document.getElementById('main-content-container');
+        const indicatorsContainer = document.getElementById('page-indicators');
+        const keyboard            = document.getElementById('custom-keyboard');
 
-        let guests          = [];
-        let lastGuestJson   = null;   // guard: only re-render when guest data actually changes
-        let currentLayout   = 'layout-grid';
-        let tablesPerPage   = 15;
-        let loopIntervalMs  = 8000;
-        let idleTimeoutMs   = 15000;
-        let burnInEnabled   = true;
-        let currentPageIndex= 0;
-        let loopTimer       = null;
-        let idleTimer       = null;
-        let kbIdleTimer     = null;
-        let totalPages      = 0;
-        const KB_TIMEOUT_MS = 8000;
+        let guests           = [];
+        let lastGuestJson    = null;
+        let lastTablesPerPage = 15;   // FIX: track so we re-render when it changes
+        let currentLayout    = 'layout-grid';
+        let tablesPerPage    = 15;
+        let loopIntervalMs   = 8000;
+        let idleTimeoutMs    = 15000;
+        let burnInEnabled    = true;
+        let currentPageIndex = 0;
+        let loopTimer        = null;
+        let idleTimer        = null;
+        let kbIdleTimer      = null;
+        let totalPages       = 0;
+        const KB_TIMEOUT_MS  = 8000;
 
         // ─────────────────────────────────────────────
         // 3. DEFAULTS
@@ -320,7 +319,6 @@
                 return;
             }
 
-            // Group by table
             const tables = {};
             guests.forEach(g => {
                 const key = g.table || 'Unassigned';
@@ -332,14 +330,13 @@
                 a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
             );
 
-            // Paginate
             const pagesData = [];
             for (let i = 0; i < sortedTableNames.length; i += tablesPerPage) {
                 pagesData.push(sortedTableNames.slice(i, i + tablesPerPage));
             }
             totalPages = pagesData.length;
 
-            mainContainer.innerHTML    = '';
+            mainContainer.innerHTML      = '';
             indicatorsContainer.innerHTML = '';
             toggleNavArrows(totalPages > 1);
 
@@ -383,14 +380,13 @@
         }
 
         // ─────────────────────────────────────────────
-        // 5. SEARCH  — highlight/fade (original style)
+        // 5. SEARCH — highlight/fade style
         // ─────────────────────────────────────────────
         function applySearch() {
             const query = searchInput.value.toLowerCase().trim();
             const items = document.querySelectorAll('.guest-item');
 
             if (query === '') {
-                // Clear all highlight/fade, restore page view
                 items.forEach(item => item.classList.remove('highlight', 'fade', 'hidden'));
                 document.querySelectorAll('.table-group').forEach(tg => tg.style.display = '');
                 document.querySelectorAll('.seating-page').forEach((p, i) =>
@@ -401,7 +397,7 @@
                 return;
             }
 
-            clearInterval(loopTimer); // Pause auto-loop during search
+            clearInterval(loopTimer);
 
             let pagesWithMatches = new Set();
 
@@ -417,13 +413,12 @@
                 }
             });
 
-            // Hide dots for pages with no matches, show all pages so results are visible
+            // Show all pages so results across pages are visible
             document.querySelectorAll('.seating-page').forEach(p => p.classList.add('active'));
             document.querySelectorAll('.dot').forEach((d, i) => {
                 d.style.display = pagesWithMatches.has(i) ? 'block' : 'none';
             });
 
-            // Jump to first matching page if current page has no match
             if (pagesWithMatches.size > 0 && !pagesWithMatches.has(currentPageIndex)) {
                 showPage(Math.min(...Array.from(pagesWithMatches)));
             }
@@ -470,12 +465,16 @@
 
         // ─────────────────────────────────────────────
         // 7. IDLE / INTERACTION
-        // NOTE: NOT called from Firebase listener — prevents idle reset on every cloud push
         // ─────────────────────────────────────────────
         function resetKbIdleTimer() {
             clearTimeout(kbIdleTimer);
             if (keyboard.classList.contains('active')) {
-                kbIdleTimer = setTimeout(() => keyboard.classList.remove('active'), KB_TIMEOUT_MS);
+                kbIdleTimer = setTimeout(() => {
+                    keyboard.classList.remove('active');
+                    searchInput.value = '';
+                    applySearch();
+                    startLoop();
+                }, KB_TIMEOUT_MS);
             }
         }
 
@@ -501,7 +500,6 @@
             startLoop();
         }
 
-        // Touch / mouse / keyboard wakes screen
         window.addEventListener('touchstart', handleInteraction);
         window.addEventListener('mousemove',  handleInteraction);
         window.addEventListener('keydown',    handleInteraction);
@@ -512,10 +510,9 @@
         searchInput.addEventListener('click', () => {
             keyboard.classList.add('active');
             handleInteraction();
-            clearInterval(loopTimer); // Pause loop while keyboard open
+            clearInterval(loopTimer);
         });
 
-        // Letter keys
         document.querySelectorAll('.kb-key:not(.wide):not(.space)').forEach(btn => {
             btn.addEventListener('click', () => {
                 searchInput.value += btn.innerText;
@@ -547,7 +544,6 @@
             startLoop();
         });
 
-        // Physical Escape key
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 searchInput.value = '';
@@ -560,15 +556,17 @@
 
         // ─────────────────────────────────────────────
         // 9. FIREBASE LISTENER
-        // All keys applied. Re-render ONLY when guest data changes.
-        // handleInteraction() intentionally NOT called here.
+        // FIX: tablesPerPage change now triggers re-render.
+        // FIX: loopInterval change restarts the loop immediately.
+        // handleInteraction() NOT called here.
         // ─────────────────────────────────────────────
         db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
             const data = snapshot.val();
 
             if (!data) {
                 guests = [];
-                lastGuestJson = null;
+                lastGuestJson    = null;
+                lastTablesPerPage = 15;
                 applyDefaults();
                 renderTables();
                 document.getElementById('floorplan-container').style.display = 'none';
@@ -576,7 +574,7 @@
                 return;
             }
 
-            // Visual
+            // Visual CSS vars
             root.style.setProperty('--bg-color',      data.mh_bgColor      || '#000000');
             root.style.setProperty('--text-color',     data.mh_textColor    || '#ffffff');
             root.style.setProperty('--font-main',      data.mh_font         || "'Helvetica Neue', Arial, sans-serif");
@@ -585,12 +583,11 @@
             root.style.setProperty('--guest-size',     data.mh_guestSize    || '1.2rem');
             root.style.setProperty('--top-clearance',  data.mh_topClearance || '25vh');
 
-            // Floorplan image (uploaded via operator panel)
+            // Floorplan / logo
             if (data.mh_floorplan_img) {
                 document.getElementById('floorplan-display').src = data.mh_floorplan_img;
                 document.getElementById('floorplan-container').style.display = 'block';
             }
-            // Logo image
             if (data.mh_logo_img) {
                 const logo = document.getElementById('logo-display');
                 logo.src = data.mh_logo_img;
@@ -598,10 +595,16 @@
             }
 
             // Timing
-            tablesPerPage  = data.mh_tablesPerPage ? parseInt(data.mh_tablesPerPage)       : 15;
-            loopIntervalMs = data.mh_loopInterval  ? parseInt(data.mh_loopInterval)  * 1000 : 8000;
-            idleTimeoutMs  = data.mh_idleTimeout   ? parseInt(data.mh_idleTimeout)   * 1000 : 15000;
-            burnInEnabled  = data.mh_burnIn        ? (data.mh_burnIn === 'true')             : true;
+            const newTablesPerPage = data.mh_tablesPerPage ? parseInt(data.mh_tablesPerPage) : 15;
+            const newLoopInterval  = data.mh_loopInterval  ? parseInt(data.mh_loopInterval) * 1000 : 8000;
+            idleTimeoutMs          = data.mh_idleTimeout   ? parseInt(data.mh_idleTimeout)  * 1000 : 15000;
+            burnInEnabled          = data.mh_burnIn        ? (data.mh_burnIn === 'true')            : true;
+
+            // FIX: restart loop immediately if interval changed
+            if (newLoopInterval !== loopIntervalMs) {
+                loopIntervalMs = newLoopInterval;
+                startLoop();
+            }
 
             // Layout
             if (data.mh_layout && data.mh_layout !== currentLayout) {
@@ -613,10 +616,17 @@
                 currentLayout = 'layout-grid';
             }
 
-            // Guest data — only re-render if actually changed
-            if (data.mh_guestData && data.mh_guestData !== lastGuestJson) {
-                lastGuestJson = data.mh_guestData;
-                guests = JSON.parse(data.mh_guestData);
+            // FIX: re-render if guest data OR tablesPerPage changed
+            const guestDataChanged     = data.mh_guestData && data.mh_guestData !== lastGuestJson;
+            const tablesPerPageChanged = newTablesPerPage !== lastTablesPerPage;
+
+            if (guestDataChanged || tablesPerPageChanged) {
+                tablesPerPage     = newTablesPerPage;
+                lastTablesPerPage = newTablesPerPage;
+                if (guestDataChanged) {
+                    lastGuestJson = data.mh_guestData;
+                    guests = JSON.parse(data.mh_guestData);
+                }
                 renderTables();
             } else if (!data.mh_guestData && lastGuestJson !== null) {
                 lastGuestJson = null;
@@ -625,7 +635,6 @@
             }
         });
 
-        // Kick off idle timer on load
         handleInteraction();
     </script>
 </body>
