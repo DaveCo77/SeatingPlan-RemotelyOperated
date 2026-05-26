@@ -1,176 +1,601 @@
-<script>
-    // ---------------------------------------------------------
-    // 1. FIREBASE CONFIG
-    // ---------------------------------------------------------
-    const firebaseConfig = {
-        apiKey: "AIzaSyBsdmq5cRa56FkA--ZHJCNeQK30CqNKOUg",
-        authDomain: "mondrian-seating-plan.firebaseapp.com",
-        databaseURL: "https://mondrian-seating-plan-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "mondrian-seating-plan",
-        storageBucket: "mondrian-seating-plan.firebasestorage.app",
-        messagingSenderId: "10687041872",
-        appId: "1:10687041872:web:eae592e4f9191f2ddc1c55",
-        measurementId: "G-EYY57Q0WZ9"
-    };
-    
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const urlParams = new URLSearchParams(window.location.search);
-    const eventId = urlParams.get('event') || 'demo-event';
-
-    // ---------------------------------------------------------
-    // 2. STATE & UI
-    // ---------------------------------------------------------
-    const root = document.documentElement;
-    const searchInput = document.getElementById('searchInput');
-    const mainContainer = document.getElementById('main-content-container');
-    const indicatorsContainer = document.getElementById('page-indicators');
-    const keyboard = document.getElementById('custom-keyboard');
-    
-    let guests = []; 
-    let currentLayout = 'layout-grid';
-    let tablesPerPage = 15;
-    let loopIntervalMs = 8000;
-    let idleTimeoutMs = 15000;
-    let burnInEnabled = true; 
-    let currentPageIndex = 0;
-    let loopTimer = null;
-    let idleTimer = null;
-    let totalPages = 0;
-
-    function applyDefaults() {
-        root.style.setProperty('--bg-color', '#000000');
-        root.style.setProperty('--text-color', '#ffffff');
-        root.style.setProperty('--font-main', "'Helvetica Neue', Arial, sans-serif");
-        root.style.setProperty('--title-size', '3.5rem');
-        root.style.setProperty('--table-size', '1.4rem');
-        root.style.setProperty('--guest-size', '1.2rem');
-        root.style.setProperty('--top-clearance', '25vh');
-    }
-
-    // ---------------------------------------------------------
-    // 3. RENDER ENGINE (PAGINATION FIXED)
-    // ---------------------------------------------------------
-    function renderTables() {
-        if (!guests || guests.length === 0) {
-            mainContainer.innerHTML = '<p style="text-align: center; width: 100%;">Awaiting data from Cloud Database...</p>';
-            indicatorsContainer.innerHTML = '';
-            toggleNavArrows(false);
-            clearInterval(loopTimer);
-            return;
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seating Plan Display</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --font-main: 'Helvetica Neue', Arial, sans-serif;
+            --title-size: 3.5rem;
+            --table-size: 1.4rem;
+            --guest-size: 1.2rem;
+            --top-clearance: 25vh;
         }
 
-        const tables = {};
-        guests.forEach(g => { 
-            if (!tables[g.table]) tables[g.table] = []; 
-            tables[g.table].push(g); 
-        });
-        const sortedTableNames = Object.keys(tables).sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        const pagesData = [];
-        for (let i = 0; i < sortedTableNames.length; i += tablesPerPage) {
-            pagesData.push(sortedTableNames.slice(i, i + tablesPerPage));
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            transition: opacity 0.8s ease;
         }
-        totalPages = pagesData.length;
 
-        mainContainer.innerHTML = '';
-        indicatorsContainer.innerHTML = '';
-        toggleNavArrows(totalPages > 1);
+        body.idle-mode { opacity: 0.3; }
+        body.active-mode { opacity: 1; }
 
-        pagesData.forEach((pageTables, index) => {
-            const pageDiv = document.createElement('div');
-            pageDiv.className = `seating-page ${currentLayout}`;
-            pageDiv.setAttribute('data-page-index', index);
-            
-            let html = '';
-            pageTables.forEach(tableName => {
-                html += `<div class="table-group"><h3>Table ${tableName}</h3><ul>`;
-                tables[tableName].sort((a, b) => a.last.localeCompare(b.last)).forEach(guest => {
-                    const fullName = `${guest.first} ${guest.last}`.trim();
-                    const subDetails = [guest.title, guest.company].filter(Boolean).join(' | ');
-                    html += `
-                        <li class="guest-item" data-search="${`${fullName} ${guest.company} ${guest.title}`.toLowerCase()}">
-                            <div class="guest-name">${fullName}</div>
-                            ${subDetails ? `<div class="guest-details">${subDetails}</div>` : ''}
-                        </li>
-                    `;
-                });
-                html += `</ul></div>`;
+        /* --- Top zone --- */
+        #top-zone {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: var(--top-clearance);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 1rem;
+            z-index: 10;
+        }
+
+        #event-title {
+            font-size: var(--title-size);
+            font-family: var(--font-main);
+            color: var(--text-color);
+            text-align: center;
+            padding: 0 2rem;
+        }
+
+        #search-zone {
+            margin-top: 0.8rem;
+            width: min(600px, 90vw);
+            position: relative;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 0.6rem 1rem;
+            font-size: 1.1rem;
+            font-family: var(--font-main);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--text-color);
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* --- Main content --- */
+        #main-content-container {
+            position: fixed;
+            top: var(--top-clearance);
+            left: 0; right: 0; bottom: 3rem;
+            overflow: hidden;
+        }
+
+        .seating-page {
+            display: none;
+            width: 100%;
+            height: 100%;
+            padding: 1.5rem 2rem;
+            overflow: hidden;
+        }
+        .seating-page.active { display: flex; flex-wrap: wrap; gap: 1.5rem; align-content: flex-start; }
+
+        /* Layout modes */
+        .seating-page.layout-grid { flex-direction: row; }
+        .seating-page.layout-columns { flex-direction: column; flex-wrap: wrap; }
+        .seating-page.layout-list { flex-direction: column; align-items: center; }
+
+        .table-group {
+            flex: 0 0 auto;
+            min-width: 180px;
+        }
+        .layout-list .table-group { width: min(500px, 90vw); }
+
+        .table-group h3 {
+            font-size: var(--table-size);
+            font-family: var(--font-main);
+            color: var(--text-color);
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 0.3rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .table-group ul { list-style: none; }
+
+        .guest-item {
+            padding: 0.2rem 0;
+            transition: opacity 0.2s;
+        }
+        .guest-item.hidden { display: none; }
+
+        .guest-name {
+            font-size: var(--guest-size);
+            font-family: var(--font-main);
+            color: var(--text-color);
+        }
+
+        .guest-details {
+            font-size: calc(var(--guest-size) * 0.75);
+            opacity: 0.6;
+            color: var(--text-color);
+        }
+
+        /* --- Bottom bar --- */
+        #bottom-bar {
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            height: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.3);
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .dot.active { background: var(--text-color); }
+
+        /* --- Nav arrows --- */
+        .nav-arrow {
+            position: fixed;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: var(--text-color);
+            font-size: 2rem;
+            width: 3rem; height: 5rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 20;
+            user-select: none;
+        }
+        #nav-prev { left: 0; border-radius: 0 4px 4px 0; }
+        #nav-next { right: 0; border-radius: 4px 0 0 4px; }
+
+        /* --- Keyboard --- */
+        #custom-keyboard {
+            position: fixed;
+            bottom: 3rem; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.92);
+            border: 1px solid rgba(255,255,255,0.2);
+            padding: 1rem;
+            display: none;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 30;
+            border-radius: 4px;
+        }
+        #custom-keyboard.active { display: flex; }
+
+        .kb-row { display: flex; gap: 0.4rem; justify-content: center; }
+
+        .kb-key {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.25);
+            color: var(--text-color);
+            font-family: var(--font-main);
+            font-size: 1rem;
+            padding: 0.5rem 0.8rem;
+            min-width: 2.5rem;
+            cursor: pointer;
+            border-radius: 3px;
+            text-align: center;
+            user-select: none;
+            transition: background 0.1s;
+        }
+        .kb-key:hover { background: rgba(255,255,255,0.25); }
+        .kb-key.wide { min-width: 5rem; }
+        .kb-key.space { min-width: 12rem; }
+    </style>
+</head>
+<body class="active-mode">
+
+    <div id="top-zone">
+        <div id="event-title">SEATING PLAN</div>
+        <div id="search-zone">
+            <input type="text" id="searchInput" placeholder="Tap to search guest or company..." readonly>
+        </div>
+    </div>
+
+    <div id="main-content-container"></div>
+
+    <div id="bottom-bar">
+        <div id="page-indicators" style="display:flex; gap:0.6rem;"></div>
+    </div>
+
+    <div class="nav-arrow" id="nav-prev">&#8249;</div>
+    <div class="nav-arrow" id="nav-next">&#8250;</div>
+
+    <!-- On-screen keyboard -->
+    <div id="custom-keyboard">
+        <div class="kb-row">
+            <div class="kb-key" data-char="Q">Q</div><div class="kb-key" data-char="W">W</div>
+            <div class="kb-key" data-char="E">E</div><div class="kb-key" data-char="R">R</div>
+            <div class="kb-key" data-char="T">T</div><div class="kb-key" data-char="Y">Y</div>
+            <div class="kb-key" data-char="U">U</div><div class="kb-key" data-char="I">I</div>
+            <div class="kb-key" data-char="O">O</div><div class="kb-key" data-char="P">P</div>
+        </div>
+        <div class="kb-row">
+            <div class="kb-key" data-char="A">A</div><div class="kb-key" data-char="S">S</div>
+            <div class="kb-key" data-char="D">D</div><div class="kb-key" data-char="F">F</div>
+            <div class="kb-key" data-char="G">G</div><div class="kb-key" data-char="H">H</div>
+            <div class="kb-key" data-char="J">J</div><div class="kb-key" data-char="K">K</div>
+            <div class="kb-key" data-char="L">L</div>
+        </div>
+        <div class="kb-row">
+            <div class="kb-key" data-char="Z">Z</div><div class="kb-key" data-char="X">X</div>
+            <div class="kb-key" data-char="C">C</div><div class="kb-key" data-char="V">V</div>
+            <div class="kb-key" data-char="B">B</div><div class="kb-key" data-char="N">N</div>
+            <div class="kb-key" data-char="M">M</div>
+        </div>
+        <div class="kb-row">
+            <div class="kb-key wide" data-action="backspace">⌫</div>
+            <div class="kb-key space" data-char=" ">SPACE</div>
+            <div class="kb-key wide" data-action="close">✕</div>
+        </div>
+    </div>
+
+    <script>
+        // ---------------------------------------------------------
+        // 1. FIREBASE CONFIG
+        // ---------------------------------------------------------
+        const firebaseConfig = {
+            apiKey: "AIzaSyBsdmq5cRa56FkA--ZHJCNeQK30CqNKOUg",
+            authDomain: "mondrian-seating-plan.firebaseapp.com",
+            databaseURL: "https://mondrian-seating-plan-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "mondrian-seating-plan",
+            storageBucket: "mondrian-seating-plan.firebasestorage.app",
+            messagingSenderId: "10687041872",
+            appId: "1:10687041872:web:eae592e4f9191f2ddc1c55",
+            measurementId: "G-EYY57Q0WZ9"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const eventId = urlParams.get('event') || 'demo-event';
+
+        // ---------------------------------------------------------
+        // 2. STATE
+        // ---------------------------------------------------------
+        const root = document.documentElement;
+        const searchInput  = document.getElementById('searchInput');
+        const mainContainer = document.getElementById('main-content-container');
+        const indicatorsContainer = document.getElementById('page-indicators');
+        const keyboard = document.getElementById('custom-keyboard');
+
+        let guests = [];
+        let lastGuestJson = null;   // FIX: track last guest data to avoid redundant re-renders
+        let currentLayout = 'layout-grid';
+        let tablesPerPage = 15;
+        let loopIntervalMs = 8000;
+        let idleTimeoutMs  = 15000;
+        let burnInEnabled  = true;
+        let currentPageIndex = 0;
+        let loopTimer  = null;
+        let idleTimer  = null;
+        let totalPages = 0;
+
+        // ---------------------------------------------------------
+        // 3. DEFAULTS
+        // ---------------------------------------------------------
+        function applyDefaults() {
+            root.style.setProperty('--bg-color',       '#000000');
+            root.style.setProperty('--text-color',     '#ffffff');
+            root.style.setProperty('--font-main',      "'Helvetica Neue', Arial, sans-serif");
+            root.style.setProperty('--title-size',     '3.5rem');
+            root.style.setProperty('--table-size',     '1.4rem');
+            root.style.setProperty('--guest-size',     '1.2rem');
+            root.style.setProperty('--top-clearance',  '25vh');
+        }
+        applyDefaults();
+
+        // ---------------------------------------------------------
+        // 4. RENDER ENGINE
+        // ---------------------------------------------------------
+        function renderTables() {
+            if (!guests || guests.length === 0) {
+                mainContainer.innerHTML = '<p style="text-align:center;width:100%;padding-top:3rem;">Awaiting data from Cloud Database...</p>';
+                indicatorsContainer.innerHTML = '';
+                toggleNavArrows(false);
+                clearInterval(loopTimer);
+                return;
+            }
+
+            // Group by table
+            const tables = {};
+            guests.forEach(g => {
+                const key = g.table || 'Unassigned';
+                if (!tables[key]) tables[key] = [];
+                tables[key].push(g);
             });
-            pageDiv.innerHTML = html;
-            mainContainer.appendChild(pageDiv);
 
-            if (totalPages > 1) {
-                const dot = document.createElement('div');
-                dot.className = 'dot';
-                dot.addEventListener('click', () => { handleInteraction(); showPage(index); });
-                indicatorsContainer.appendChild(dot);
+            const sortedTableNames = Object.keys(tables).sort((a, b) =>
+                a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+            );
+
+            // Paginate
+            const pagesData = [];
+            for (let i = 0; i < sortedTableNames.length; i += tablesPerPage) {
+                pagesData.push(sortedTableNames.slice(i, i + tablesPerPage));
+            }
+            totalPages = pagesData.length;
+
+            mainContainer.innerHTML = '';
+            indicatorsContainer.innerHTML = '';
+            toggleNavArrows(totalPages > 1);
+
+            pagesData.forEach((pageTables, index) => {
+                const pageDiv = document.createElement('div');
+                pageDiv.className = `seating-page ${currentLayout}`;
+                pageDiv.setAttribute('data-page-index', index);
+
+                let html = '';
+                pageTables.forEach(tableName => {
+                    html += `<div class="table-group"><h3>Table ${tableName}</h3><ul>`;
+                    tables[tableName]
+                        .sort((a, b) => (a.last || '').localeCompare(b.last || ''))
+                        .forEach(guest => {
+                            const fullName   = `${guest.first || ''} ${guest.last || ''}`.trim();
+                            const subDetails = [guest.title, guest.company].filter(Boolean).join(' | ');
+                            const searchAttr = `${fullName} ${guest.company || ''} ${guest.title || ''}`.toLowerCase();
+                            html += `
+                                <li class="guest-item" data-search="${searchAttr}">
+                                    <div class="guest-name">${fullName}</div>
+                                    ${subDetails ? `<div class="guest-details">${subDetails}</div>` : ''}
+                                </li>`;
+                        });
+                    html += `</ul></div>`;
+                });
+
+                pageDiv.innerHTML = html;
+                mainContainer.appendChild(pageDiv);
+
+                if (totalPages > 1) {
+                    const dot = document.createElement('div');
+                    dot.className = 'dot';
+                    dot.addEventListener('click', () => { handleInteraction(); showPage(index); });
+                    indicatorsContainer.appendChild(dot);
+                }
+            });
+
+            showPage(0);
+            startLoop();
+        }
+
+        // ---------------------------------------------------------
+        // 5. SEARCH
+        // FIX: applySearch is now fully implemented
+        // ---------------------------------------------------------
+        function applySearch() {
+            const query = searchInput.value.toLowerCase().trim();
+            const pages = document.querySelectorAll('.seating-page');
+
+            if (!query) {
+                // Restore everything, go back to pagination view
+                pages.forEach(p => {
+                    p.querySelectorAll('.guest-item').forEach(item => item.classList.remove('hidden'));
+                    // hide table groups that are now empty (they won't be, after restore)
+                    p.querySelectorAll('.table-group').forEach(tg => tg.style.display = '');
+                });
+                // Show only the correct page
+                pages.forEach((p, i) => p.classList.toggle('active', i === currentPageIndex));
+                return;
+            }
+
+            // Show ALL pages when searching so results span pages
+            pages.forEach(p => p.classList.add('active'));
+
+            pages.forEach(p => {
+                let pageHasMatch = false;
+                p.querySelectorAll('.table-group').forEach(tg => {
+                    let tableHasMatch = false;
+                    tg.querySelectorAll('.guest-item').forEach(item => {
+                        const match = item.getAttribute('data-search').includes(query);
+                        item.classList.toggle('hidden', !match);
+                        if (match) tableHasMatch = true;
+                    });
+                    tg.style.display = tableHasMatch ? '' : 'none';
+                    if (tableHasMatch) pageHasMatch = true;
+                });
+            });
+        }
+
+        // ---------------------------------------------------------
+        // 6. NAVIGATION
+        // ---------------------------------------------------------
+        function showPage(index) {
+            if (totalPages === 0) return;
+            currentPageIndex = index;
+            document.querySelectorAll('.seating-page').forEach((p, i) =>
+                p.classList.toggle('active', i === index)
+            );
+            document.querySelectorAll('.dot').forEach((d, i) =>
+                d.classList.toggle('active', i === index)
+            );
+        }
+
+        function startLoop() {
+            clearInterval(loopTimer);
+            if (totalPages <= 1 || keyboard.classList.contains('active')) return;
+            loopTimer = setInterval(() => {
+                currentPageIndex = (currentPageIndex + 1) % totalPages;
+                showPage(currentPageIndex);
+            }, loopIntervalMs);
+        }
+
+        function toggleNavArrows(show) {
+            document.getElementById('nav-prev').style.display = show ? 'flex' : 'none';
+            document.getElementById('nav-next').style.display = show ? 'flex' : 'none';
+        }
+
+        document.getElementById('nav-prev').addEventListener('click', () => {
+            handleInteraction();
+            showPage((currentPageIndex - 1 + totalPages) % totalPages);
+        });
+        document.getElementById('nav-next').addEventListener('click', () => {
+            handleInteraction();
+            showPage((currentPageIndex + 1) % totalPages);
+        });
+
+        // ---------------------------------------------------------
+        // 7. IDLE HANDLING
+        // FIX: handleInteraction is NOT called from Firebase listener
+        // ---------------------------------------------------------
+        function handleInteraction() {
+            document.body.classList.replace('idle-mode', 'active-mode');
+            clearTimeout(idleTimer);
+            clearInterval(loopTimer);
+
+            idleTimer = setTimeout(() => {
+                // Reset search
+                searchInput.value = '';
+                keyboard.classList.remove('active');
+                applySearch();
+                showPage(0);
+                startLoop();
+                if (burnInEnabled) {
+                    document.body.classList.replace('active-mode', 'idle-mode');
+                }
+            }, idleTimeoutMs);
+
+            // Restart the page loop after interaction pause
+            startLoop();
+        }
+
+        // ---------------------------------------------------------
+        // 8. KEYBOARD
+        // ---------------------------------------------------------
+        searchInput.addEventListener('click', () => {
+            handleInteraction();
+            keyboard.classList.add('active');
+            clearInterval(loopTimer); // Pause loop while keyboard open
+        });
+
+        document.querySelectorAll('.kb-key').forEach(key => {
+            key.addEventListener('click', () => {
+                handleInteraction();
+                const char   = key.getAttribute('data-char');
+                const action = key.getAttribute('data-action');
+
+                if (char !== null) {
+                    searchInput.value += char;
+                } else if (action === 'backspace') {
+                    searchInput.value = searchInput.value.slice(0, -1);
+                } else if (action === 'close') {
+                    searchInput.value = '';
+                    keyboard.classList.remove('active');
+                    applySearch();
+                    showPage(0);
+                    startLoop();
+                    return;
+                }
+                applySearch();
+            });
+        });
+
+        // Physical keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                searchInput.value = '';
+                keyboard.classList.remove('active');
+                applySearch();
+                showPage(0);
+                startLoop();
             }
         });
-        showPage(0);
-        startLoop();
-    }
 
-    // ---------------------------------------------------------
-    // 4. NAVIGATION & LOOPS
-    // ---------------------------------------------------------
-    function showPage(index) {
-        if(totalPages === 0) return;
-        currentPageIndex = index;
-        document.querySelectorAll('.seating-page').forEach((p, i) => {
-            p.classList.toggle('active', i === index);
+        // ---------------------------------------------------------
+        // 9. FIREBASE LISTENER
+        // FIX: All keys applied. Re-render only on guest data change.
+        //      handleInteraction() NOT called here (was resetting idle on every cloud push).
+        // ---------------------------------------------------------
+        db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
+            const data = snapshot.val();
+
+            // If event was purged, reset to defaults
+            if (!data) {
+                guests = [];
+                lastGuestJson = null;
+                applyDefaults();
+                renderTables();
+                return;
+            }
+
+            // --- Visual settings ---
+            if (data.mh_bgColor)    root.style.setProperty('--bg-color',      data.mh_bgColor);
+            else                    root.style.setProperty('--bg-color',       '#000000');
+
+            if (data.mh_textColor)  root.style.setProperty('--text-color',    data.mh_textColor);
+            else                    root.style.setProperty('--text-color',     '#ffffff');
+
+            if (data.mh_font)       root.style.setProperty('--font-main',     data.mh_font);
+            else                    root.style.setProperty('--font-main',      "'Helvetica Neue', Arial, sans-serif");
+
+            // FIX: Typography — was received but never applied
+            if (data.mh_titleSize)  root.style.setProperty('--title-size',    data.mh_titleSize);
+            else                    root.style.setProperty('--title-size',     '3.5rem');
+
+            if (data.mh_tableSize)  root.style.setProperty('--table-size',    data.mh_tableSize);
+            else                    root.style.setProperty('--table-size',     '1.4rem');
+
+            if (data.mh_guestSize)  root.style.setProperty('--guest-size',    data.mh_guestSize);
+            else                    root.style.setProperty('--guest-size',     '1.2rem');
+
+            // FIX: Top clearance — was received but never applied
+            if (data.mh_topClearance) root.style.setProperty('--top-clearance', data.mh_topClearance);
+            else                      root.style.setProperty('--top-clearance',  '25vh');
+
+            // --- Timing/behaviour settings ---
+            tablesPerPage  = data.mh_tablesPerPage ? parseInt(data.mh_tablesPerPage)       : 15;
+            loopIntervalMs = data.mh_loopInterval  ? parseInt(data.mh_loopInterval) * 1000 : 8000;
+
+            // FIX: idleTimeout — was received but never applied
+            idleTimeoutMs  = data.mh_idleTimeout   ? parseInt(data.mh_idleTimeout) * 1000  : 15000;
+
+            // FIX: burnIn — was received but never applied
+            burnInEnabled  = data.mh_burnIn ? (data.mh_burnIn === 'true') : true;
+
+            // --- Layout ---
+            if (data.mh_layout && data.mh_layout !== currentLayout) {
+                currentLayout = data.mh_layout;
+                document.querySelectorAll('.seating-page').forEach(p => {
+                    p.className = `seating-page${p.classList.contains('active') ? ' active' : ''} ${currentLayout}`;
+                });
+            } else if (!data.mh_layout) {
+                currentLayout = 'layout-grid';
+            }
+
+            // FIX: Only re-render if guest data actually changed — prevents
+            //      page reset to 0 on every colour/typography tweak
+            if (data.mh_guestData && data.mh_guestData !== lastGuestJson) {
+                lastGuestJson = data.mh_guestData;
+                guests = JSON.parse(data.mh_guestData);
+                renderTables();
+            } else if (!data.mh_guestData && lastGuestJson !== null) {
+                lastGuestJson = null;
+                guests = [];
+                renderTables();
+            }
         });
-        document.querySelectorAll('.dot').forEach((d, i) => {
-            d.classList.toggle('active', i === index);
-        });
-    }
-
-    function startLoop() {
-        clearInterval(loopTimer);
-        if (totalPages <= 1 || keyboard.classList.contains('active')) return; 
-        loopTimer = setInterval(() => {
-            currentPageIndex = (currentPageIndex + 1) % totalPages;
-            showPage(currentPageIndex);
-        }, loopIntervalMs);
-    }
-
-    function toggleNavArrows(show) {
-        document.getElementById('nav-prev').style.display = show ? 'block' : 'none';
-        document.getElementById('nav-next').style.display = show ? 'block' : 'none';
-    }
-
-    // --- Interaction & Event Listeners ---
-    function handleInteraction() {
-        document.body.classList.replace('idle-mode', 'active-mode');
-        clearTimeout(idleTimer); clearInterval(loopTimer); 
-        idleTimer = setTimeout(() => {
-            searchInput.value = ''; keyboard.classList.remove('active'); applySearch(); showPage(0); startLoop();   
-            if (burnInEnabled) { document.body.classList.replace('active-mode', 'idle-mode'); }
-        }, idleTimeoutMs);
-    }
-
-    // --- Firebase Listener (SINGLE INSTANCE) ---
-    db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-
-        if (data.mh_bgColor) root.style.setProperty('--bg-color', data.mh_bgColor);
-        if (data.mh_textColor) root.style.setProperty('--text-color', data.mh_textColor);
-        if (data.mh_font) root.style.setProperty('--font-main', data.mh_font);
-        if (data.mh_tablesPerPage) tablesPerPage = parseInt(data.mh_tablesPerPage);
-        if (data.mh_loopInterval) loopIntervalMs = parseInt(data.mh_loopInterval) * 1000;
-        
-        if (data.mh_layout && data.mh_layout !== currentLayout) {
-            currentLayout = data.mh_layout;
-            document.querySelectorAll('.seating-page').forEach(p => p.className = `seating-page ${p.classList.contains('active') ? 'active' : ''} ${currentLayout}`);
-        }
-
-        if (data.mh_guestData) {
-            guests = JSON.parse(data.mh_guestData);
-            renderTables();
-        }
-        handleInteraction();
-    });
-
-    // Interaction bindings omitted for brevity, keep your existing listeners...
-</script>
+    </script>
+</body>
+</html>
