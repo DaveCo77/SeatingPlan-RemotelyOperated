@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operator Control Panel</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
+    <style>
+        :root { --term-red: #ff3333; --term-bg: #0a0000; --term-glow: rgba(255, 51, 51, 0.4); }
+        body { font-family: 'Courier New', Courier, monospace; background-color: var(--term-bg); color: var(--term-red); margin: 0; padding: 2rem; display: flex; justify-content: center; text-shadow: 0 0 5px var(--term-glow); background-image: linear-gradient(rgba(255, 51, 51, 0.03) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; }
+        .operator-panel { width: 100%; max-width: 1600px; background: transparent; padding: 2.5rem; border: 2px solid var(--term-red); border-radius: 4px; box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.1), 0 0 20px rgba(255, 51, 51, 0.1); }
+        .operator-panel h2 { margin-top: 0; font-size: 2rem; border-bottom: 2px solid var(--term-red); padding-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-bottom: 2rem; }
+        .panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 3rem; align-items: start; }
+        .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1.5rem; border-bottom: 1px dashed var(--term-red); padding-bottom: 5px; text-transform: uppercase; color: #fff; }
+        .control-group { margin-bottom: 1.5rem; display: flex; flex-direction: column; }
+        .control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .control-header label { font-weight: bold; font-size: 0.95rem; text-transform: uppercase; }
+        .reset-btn { background: transparent; color: var(--term-red); border: 1px solid var(--term-red); padding: 2px 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
+        .reset-btn:hover { background: var(--term-red); color: var(--term-bg); }
+        .control-group input, .control-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--term-red); background: rgba(255, 51, 51, 0.05); color: var(--term-red); box-sizing: border-box; font-family: inherit; outline: none; }
+        input[type="range"] { -webkit-appearance: none; background: transparent; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; background: var(--term-red); cursor: pointer; margin-top: -8px; }
+        input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255, 51, 51, 0.3); }
+        button.action-btn { background-color: transparent; color: var(--term-red); border: 2px solid var(--term-red); padding: 0.8rem 1.2rem; font-size: 1rem; font-family: inherit; cursor: pointer; font-weight: bold; text-transform: uppercase; width: 100%; margin-top: 10px; transition: all 0.2s; }
+        button.action-btn:hover { background-color: var(--term-red); color: var(--term-bg); }
+        .danger-btn { border-color: #ff0000; color: #ff0000; margin-top: 2rem; }
+        .danger-btn:hover { background-color: #ff0000; color: var(--term-bg); }
+        .manual-entry-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+        .manual-entry-row input.table-input { grid-column: span 2; text-align: center; }
+        .instruction-block { border: 1px dashed var(--term-red); padding: 1rem; margin-top: 0.5rem; background: rgba(255, 51, 51, 0.02); font-size: 0.85rem; line-height: 1.5; }
+        .instruction-block ul { margin: 0.5rem 0 0 1rem; padding: 0; }
+        .instruction-block li { margin-bottom: 0.3rem; }
+        
+        /* New Session Routing Style */
+        .session-box { border: 2px solid #00ff00; padding: 1rem; margin-bottom: 2rem; background: rgba(0,255,0,0.05); }
+        .session-box label, .session-box .section-title { color: #00ff00; border-color: #00ff00; }
+        .session-box input { border-color: #00ff00; color: #00ff00; }
+        .session-box button { border-color: #00ff00; color: #00ff00; }
+        .session-box button:hover { background-color: #00ff00; color: var(--term-bg); }
+    </style>
+</head>
+<body>
+
+    <main class="operator-panel">
+        <h2>Control Terminal</h2>
+        
+        <div class="session-box">
+            <div class="section-title">Cloud Session Routing</div>
+            <div class="control-group" style="margin-bottom: 0;">
+                <label>Active Event ID</label>
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="activeEventId" value="demo-event" placeholder="e.g., QLD-Gala">
+                    <button id="setEventBtn" class="action-btn" style="margin-top:0; width:auto;">Connect</button>
+                </div>
+                <small id="eventConnectStatus" style="color: #00ff00; margin-top: 5px; display: none;">Connected to Cloud Node.</small>
+            </div>
+        </div>
+
+        <div class="panel-grid">
+            
+            <div class="grid-col">
+                <div class="section-title">Pagination & Timing</div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Tables Per Page <span id="tablesPageVal">15</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_tablesPerPage', 'tablesPerPage', 'tablesPageVal', '15')">↺</button>
+                    </div>
+                    <input type="range" id="tablesPerPage" min="4" max="50" step="1" value="15">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Page Loop Interval (Seconds) <span id="loopTimeVal">8</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_loopInterval', 'loopInterval', 'loopTimeVal', '8')">↺</button>
+                    </div>
+                    <input type="range" id="loopInterval" min="3" max="30" step="1" value="8">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Search Idle Timeout (Seconds) <span id="idleTimeVal">15</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_idleTimeout', 'idleTimeout', 'idleTimeVal', '15')">↺</button>
+                    </div>
+                    <input type="range" id="idleTimeout" min="5" max="60" step="1" value="15">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Idle Burn-In Protection</label>
+                        <button class="reset-btn" onclick="resetSetting('mh_burnIn', 'burnInToggle', 'true')">↺</button>
+                    </div>
+                    <select id="burnInToggle">
+                        <option value="true">Enabled (Dims text when idle)</option>
+                        <option value="false">Disabled (Always full brightness)</option>
+                    </select>
+                </div>
+
+                <div class="section-title" style="margin-top: 3rem;">Display Architecture</div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Top Clearance <span id="topClearanceVal">25</span>%</label>
+                        <button class="reset-btn" onclick="resetSlider('mh_topClearance', 'topClearance', 'topClearanceVal', '25')">↺</button>
+                    </div>
+                    <input type="range" id="topClearance" min="0" max="60" step="1" value="25">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header"><label for="layoutSelect">Display Layout</label><button class="reset-btn" onclick="resetSetting('mh_layout', 'layoutSelect', 'layout-grid')">↺</button></div>
+                    <select id="layoutSelect">
+                        <option value="layout-grid">Standard Auto-Grid</option>
+                        <option value="layout-columns">Masonry Columns</option>
+                        <option value="layout-list">Centered List</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid-col">
+                <div class="section-title">Visual Configuration</div>
+                
+                <div class="control-group">
+                    <div class="control-header"><label for="fontSelect">Display Font</label><button class="reset-btn" onclick="resetSetting('mh_font', 'fontSelect', 'Helvetica Neue')">↺</button></div>
+                    <select id="fontSelect">
+                        <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica / Arial</option>
+                        <option value="'Cinzel', serif">Cinzel</option>
+                        <option value="'Playfair Display', serif">Playfair Display</option>
+                        <option value="'Montserrat', sans-serif">Montserrat</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <div class="control-header"><label>Background Colour</label><button class="reset-btn" onclick="resetSetting('mh_bgColor', 'bgColor', '#000000')">↺</button></div>
+                    <input type="color" id="bgColor" value="#000000">
+                </div>
+                <div class="control-group">
+                    <div class="control-header"><label>Text Colour</label><button class="reset-btn" onclick="resetSetting('mh_textColor', 'textColor', '#ffffff')">↺</button></div>
+                    <input type="color" id="textColor" value="#ffffff">
+                </div>
+
+                <div class="section-title" style="margin-top: 3rem;">Typography Scaling</div>
+                
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Main Title Size <span id="titleSizeVal">3.5</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_titleSize', 'titleSize', 'titleSizeVal', '3.5')">↺</button>
+                    </div>
+                    <input type="range" id="titleSize" min="2" max="6" step="0.1" value="3.5">
+                </div>
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Table Header Size <span id="tableSizeVal">1.4</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_tableSize', 'tableSize', 'tableSizeVal', '1.4')">↺</button>
+                    </div>
+                    <input type="range" id="tableSize" min="1" max="3" step="0.1" value="1.4">
+                </div>
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Guest Name Size <span id="guestSizeVal">1.2</span></label>
+                        <button class="reset-btn" onclick="resetSlider('mh_guestSize', 'guestSize', 'guestSizeVal', '1.2')">↺</button>
+                    </div>
+                    <input type="range" id="guestSize" min="0.8" max="2.5" step="0.1" value="1.2">
+                </div>
+            </div>
+
+            <div class="grid-col">
+                <div class="section-title">Media Uploads</div>
+                <small style="display:block; margin-bottom: 10px; color:#ffcc00;">Note: Keep image files small (<500kb) for fastest cloud sync.</small>
+                <div class="control-group"><label>Upload Floorplan</label><input type="file" id="floorplanUpload" accept="image/jpeg, image/png"></div>
+                
+                <div class="section-title" style="margin-top: 3rem;">Database Management</div>
+                
+                <div class="control-group">
+                    <label>Bulk Upload (XLSX)</label>
+                    <input type="file" id="xlsxUpload" accept=".xlsx, .xls">
+                    <button id="processXlsxBtn" class="action-btn">Execute Upload</button>
+                </div>
+
+                <div class="control-group">
+                    <label>Manual Entry Override</label>
+                    <div class="manual-entry-row">
+                        <input type="text" id="manualFirst" placeholder="First Name">
+                        <input type="text" id="manualLast" placeholder="Last Name">
+                        <input type="text" id="manualComp" placeholder="Company">
+                        <input type="text" id="manualTitle" placeholder="Title">
+                        <input type="text" id="manualTable" class="table-input" placeholder="Table">
+                    </div>
+                    <button id="addManualBtn" class="action-btn">Append Record</button>
+                </div>
+
+                <button id="resetDataBtn" class="action-btn danger-btn">PURGE CURRENT EVENT DATA</button>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // ---------------------------------------------------------
+        // 1. PASTE YOUR FIREBASE CONFIGURATION HERE
+        // ---------------------------------------------------------
+const firebaseConfig = {
+  apiKey: "AIzaSyBsdmq5cRa56FkA--ZHJCNeQK30CqNKOUg",
+  authDomain: "mondrian-seating-plan.firebaseapp.com",
+  databaseURL: "https://mondrian-seating-plan-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mondrian-seating-plan",
+  storageBucket: "mondrian-seating-plan.firebasestorage.app",
+  messagingSenderId: "10687041872",
+  appId: "1:10687041872:web:eae592e4f9191f2ddc1c55",
+  measurementId: "G-EYY57Q0WZ9"
+        };
+        
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // ---------------------------------------------------------
+        // 2. SESSION ROUTING
+        // ---------------------------------------------------------
+        let currentEventId = 'demo-event';
+        let currentGuestsArray = []; // Keep a local working copy of guests to append to
+
+        document.getElementById('setEventBtn').addEventListener('click', () => {
+            currentEventId = document.getElementById('activeEventId').value.trim() || 'demo-event';
+            
+            // Fetch existing guests for this event so we don't overwrite blindly
+            db.ref('seating_charts/' + currentEventId + '/mh_guestData').once('value').then((snapshot) => {
+                currentGuestsArray = snapshot.val() ? JSON.parse(snapshot.val()) : [];
+                
+                const status = document.getElementById('eventConnectStatus');
+                status.innerText = `Connected to [${currentEventId}]`;
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 3000);
+            });
+        });
+
+        // ---------------------------------------------------------
+        // 3. CORE CLOUD PUSH FUNCTION
+        // ---------------------------------------------------------
+        // This replaces the old localStorage logic
+        function pushUpdate(key, value) { 
+            db.ref('seating_charts/' + currentEventId + '/' + key).set(value);
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('fontSelect').addEventListener('change', (e) => pushUpdate('mh_font', e.target.value));
+        document.getElementById('layoutSelect').addEventListener('change', (e) => pushUpdate('mh_layout', e.target.value));
+        document.getElementById('bgColor').addEventListener('input', (e) => pushUpdate('mh_bgColor', e.target.value));
+        document.getElementById('textColor').addEventListener('input', (e) => pushUpdate('mh_textColor', e.target.value));
+        document.getElementById('burnInToggle').addEventListener('change', (e) => pushUpdate('mh_burnIn', e.target.value));
+
+        function handleSlider(id, storageKey, valDisplayId, suffix = '') {
+            document.getElementById(id).addEventListener('input', (e) => {
+                document.getElementById(valDisplayId).innerText = e.target.value;
+                pushUpdate(storageKey, e.target.value + suffix);
+            });
+        }
+        
+        handleSlider('tablesPerPage', 'mh_tablesPerPage', 'tablesPageVal');
+        handleSlider('loopInterval', 'mh_loopInterval', 'loopTimeVal');
+        handleSlider('idleTimeout', 'mh_idleTimeout', 'idleTimeVal');
+        handleSlider('topClearance', 'mh_topClearance', 'topClearanceVal', 'vh');
+        
+        handleSlider('titleSize', 'mh_titleSize', 'titleSizeVal', 'rem');
+        handleSlider('tableSize', 'mh_tableSize', 'tableSizeVal', 'rem');
+        handleSlider('guestSize', 'mh_guestSize', 'guestSizeVal', 'rem');
+
+        window.resetSetting = function(storageKey, elementId, defaultValue) {
+            pushUpdate(storageKey, null); // Deletes from Firebase
+            document.getElementById(elementId).value = defaultValue; 
+        };
+        window.resetSlider = function(storageKey, elementId, valId, defaultValue) {
+            pushUpdate(storageKey, null); 
+            document.getElementById(elementId).value = defaultValue; 
+            document.getElementById(valId).innerText = defaultValue; 
+        };
+
+        ['floorplanUpload'].forEach(id => {
+            document.getElementById(id).addEventListener('change', function(e) {
+                if (e.target.files[0]) {
+                    const r = new FileReader(); r.onload = (event) => pushUpdate('mh_' + id.replace('Upload', '_img'), event.target.result); r.readAsDataURL(e.target.files[0]);
+                }
+            });
+        });
+
+        // --- Data Processors ---
+        document.getElementById('processXlsxBtn').addEventListener('click', () => {
+            const file = document.getElementById('xlsxUpload').files[0];
+            if (!file) return alert("Error: No file selected.");
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}); 
+                
+                const start = (json[0] && json[0][0] && (json[0][0].toString().toLowerCase().includes('first') || json[0][0].toString().toLowerCase().includes('name'))) ? 1 : 0;
+                
+                for (let i = start; i < json.length; i++) {
+                    const row = json[i];
+                    if (row.length >= 5 || (row[0] && row[4])) { 
+                        currentGuestsArray.push({ 
+                            first: row[0] ? row[0].toString().trim() : '', 
+                            last: row[1] ? row[1].toString().trim() : '',
+                            company: row[2] ? row[2].toString().trim() : '',
+                            title: row[3] ? row[3].toString().trim() : '',
+                            table: row[4] ? row[4].toString().trim() : ''
+                        });
+                    }
+                }
+                pushUpdate('mh_guestData', JSON.stringify(currentGuestsArray));
+                alert('Cloud database updated successfully.');
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        document.getElementById('addManualBtn').addEventListener('click', () => {
+            const f = document.getElementById('manualFirst').value.trim(); 
+            const l = document.getElementById('manualLast').value.trim();
+            const c = document.getElementById('manualComp').value.trim();
+            const ti = document.getElementById('manualTitle').value.trim();
+            const ta = document.getElementById('manualTable').value.trim();
+            
+            if (!f || !ta) return alert("Error: First Name and Table are required.");
+            
+            currentGuestsArray.push({ first: f, last: l, company: c, title: ti, table: ta }); 
+            pushUpdate('mh_guestData', JSON.stringify(currentGuestsArray));
+            
+            document.getElementById('manualFirst').value = ''; 
+            document.getElementById('manualLast').value = ''; 
+            document.getElementById('manualComp').value = ''; 
+            document.getElementById('manualTitle').value = ''; 
+            document.getElementById('manualTable').value = ''; 
+        });
+
+        document.getElementById('resetDataBtn').addEventListener('click', () => {
+            if(confirm(`Proceed with complete data purge for event [${currentEventId}]?`)) {
+                // Wipe the entire event node in Firebase
+                db.ref('seating_charts/' + currentEventId).remove()
+                  .then(() => {
+                      currentGuestsArray = [];
+                      alert('Cloud data purged.');
+                  });
+            }
+        });
+        
+        // Auto-connect to demo-event on load
+        document.getElementById('setEventBtn').click();
+    </script>
+</body>
+</html>
