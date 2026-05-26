@@ -417,7 +417,30 @@ const firebaseConfig = {
 
             handleInteraction(); 
         });
+// Replace your existing db.ref listener with this:
+db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
 
+    // Apply Visuals
+    if (data.mh_bgColor) root.style.setProperty('--bg-color', data.mh_bgColor);
+    if (data.mh_textColor) root.style.setProperty('--text-color', data.mh_textColor);
+    if (data.mh_font) root.style.setProperty('--font-main', data.mh_font);
+    
+    // Apply Layout
+    if (data.mh_layout && data.mh_layout !== currentLayout) {
+        currentLayout = data.mh_layout;
+        document.querySelectorAll('.seating-page').forEach(p => {
+            p.className = `seating-page ${p.classList.contains('active') ? 'active' : ''} ${currentLayout}`;
+        });
+    }
+
+    // Apply Data
+    if (data.mh_guestData) {
+        guests = JSON.parse(data.mh_guestData);
+        renderTables();
+    }
+});
     </script>
 </body>
 </html>
