@@ -43,8 +43,8 @@
         }
 
         /* Burn In Protection */
-        body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
-        body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out, transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1); }
         body.idle-mode .search-container input  { border-color: rgba(255,255,255,0.5); animation: borderPulse 4s infinite ease-in-out; }
         body.idle-mode .nav-btn, body.idle-mode .page-indicators { opacity: 0.1; transition: opacity 2s ease-in-out; }
         body.active-mode .nav-btn, body.active-mode .page-indicators { opacity: 1; transition: opacity 0.5s ease-in-out; }
@@ -79,7 +79,7 @@
         .search-container {
             width: 100%; max-width: 800px;
             margin: 0 auto 2rem auto;
-            position: relative; /* CRITICAL: Anchors the keyboard below it */
+            position: relative; 
             z-index: 1000;
         }
 
@@ -96,7 +96,7 @@
 
         /* KEYBOARD DROP DOWN */
         #custom-keyboard {
-            position: absolute; /* Drops down directly from the relative search bar */
+            position: absolute; 
             top: calc(100% + 15px);
             left: 0;
             width: 100%;
@@ -133,21 +133,25 @@
         .kb-key.action-clear { background: rgba(179,0,0,0.3); }
         .kb-key.action-close { background: rgba(0,86,179,0.4); }
 
-        /* THE CSS FUCKERY: DYNAMIC SCALING */
+        /* THE CSS FUCKERY: DYNAMIC SCALING & PUSH-DOWN */
         #main-content-container { 
             width: 100%; 
             display: flex; 
             flex-direction: column; 
             align-items: center; 
             flex-grow: 1; 
-            transform-origin: top center; /* Shrinks upward toward the search bar */
-            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease-in-out;
+            transform-origin: top center; 
+            /* Added margin-top to the transition to make the slide down smooth */
+            transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease-in-out;
+            margin-top: 0px;
         }
 
         /* Triggered by JS when keyboard opens */
         body.kb-open #main-content-container {
-            transform: scale(0.65);
-            margin-bottom: 350px; 
+            /* Physically slides the grid down beneath the keyboard */
+            margin-top: 340px; 
+            /* Shrinks it gently so the bottom tables don't fall off screen */
+            transform: scale(0.85); 
         }
 
         .seating-page {
@@ -155,7 +159,7 @@
             display: none;
             animation: fadeIn 0.6s ease-in-out forwards;
         }
-        .seating-page.active { display: block; } /* Show active page */
+        .seating-page.active { display: block; } 
         .seating-page.active.layout-grid    { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 4rem; }
         .seating-page.active.layout-columns { display: block; column-count: 3; column-gap: 4rem; }
         .seating-page.active.layout-list    { display: flex; flex-direction: column; align-items: center; gap: 3rem; }
@@ -426,12 +430,10 @@
                 }
             });
 
-            // Filter pagination dots to only show pages with matches
             document.querySelectorAll('.dot').forEach((d, i) => {
                 d.style.display = pagesWithMatches.has(i) ? 'block' : 'none';
             });
 
-            // Jump specifically to the first matched page (prevents grid collapse)
             if (pagesWithMatches.size > 0 && !pagesWithMatches.has(currentPageIndex)) {
                 showPage(Math.min(...Array.from(pagesWithMatches)));
             }
@@ -484,7 +486,7 @@
             if (keyboard.classList.contains('active')) {
                 kbIdleTimer = setTimeout(() => {
                     keyboard.classList.remove('active');
-                    document.body.classList.remove('kb-open'); // REMOVES CSS SCALING
+                    document.body.classList.remove('kb-open');
                     searchInput.value = '';
                     applySearch();
                     startLoop();
@@ -502,7 +504,7 @@
             idleTimer = setTimeout(() => {
                 searchInput.value = '';
                 keyboard.classList.remove('active');
-                document.body.classList.remove('kb-open'); // REMOVES CSS SCALING
+                document.body.classList.remove('kb-open');
                 applySearch();
                 showPage(0);
                 startLoop();
@@ -526,7 +528,7 @@
         // ---------------------------------------------------------
         searchInput.addEventListener('click', () => {
             keyboard.classList.add('active');
-            document.body.classList.add('kb-open'); // APPLIES CSS SCALING
+            document.body.classList.add('kb-open');
             handleInteraction();
             clearInterval(loopTimer);
         });
@@ -556,7 +558,7 @@
         });
         document.getElementById('kb-close').addEventListener('click', () => {
             keyboard.classList.remove('active');
-            document.body.classList.remove('kb-open'); // REMOVES CSS SCALING
+            document.body.classList.remove('kb-open');
             searchInput.value = '';
             applySearch();
             showPage(0);
@@ -567,7 +569,7 @@
             if (e.key === 'Escape') {
                 searchInput.value = '';
                 keyboard.classList.remove('active');
-                document.body.classList.remove('kb-open'); // REMOVES CSS SCALING
+                document.body.classList.remove('kb-open');
                 applySearch();
                 showPage(0);
                 startLoop();
