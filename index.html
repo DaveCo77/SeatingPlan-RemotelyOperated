@@ -34,7 +34,6 @@
             text-shadow: 0px 4px 15px rgba(0,0,0,0.9), 0px 1px 3px rgba(0,0,0,0.8);
             transition: color 0.3s, font-family 0.3s;
             background-color: var(--bg-color);
-            /* FIX: background-size cover + 100vw/100vh ensures full bleed on any screen */
             background-image: url('QLD_Forum%20SeatplanBackground.jpg');
             background-size: cover;
             background-position: center center;
@@ -43,7 +42,6 @@
             overflow-x: hidden;
         }
 
-        /* FIX: Idle dims only the content, not the whole body so bg stays visible */
         body.idle-mode #main-content-container  { opacity: 0.25; transition: opacity 2s ease-in-out; }
         body.active-mode #main-content-container { opacity: 1;    transition: opacity 0.5s ease-in-out; }
         body.idle-mode .search-container input  { border-color: rgba(255,255,255,0.5); animation: borderPulse 4s infinite ease-in-out; }
@@ -58,7 +56,6 @@
             100% { box-shadow: 0 0 0   rgba(255,255,255,0); }
         }
 
-        /* FIX: display-area is a normal flow column — keyboard pushes content down naturally */
         .display-area {
             display: flex;
             flex-direction: column;
@@ -78,7 +75,6 @@
         }
         .chart-header h1 { font-size: var(--title-size); text-transform: uppercase; margin: 0; transition: font-size 0.3s; }
 
-        /* ── Search bar ── */
         .search-container {
             width: 100%; max-width: 800px;
             margin: 0 auto 2rem auto;
@@ -97,15 +93,13 @@
         #searchInput::placeholder { color: var(--text-color); opacity: 0.7; }
         #searchInput:focus { border-color: var(--highlight); background: rgba(0,0,0,0.85); }
 
-        /* ── FIX: Keyboard is in normal document flow BELOW the search bar,
-           not position:absolute — so it pushes the table content down ── */
         #custom-keyboard {
             width: 100%; max-width: 800px;
             margin: 0 auto 2rem auto;
             background: rgba(15,15,15,0.95);
             padding: 20px; border-radius: 12px;
             box-shadow: 0 15px 50px rgba(0,0,0,0.9);
-            display: none;   /* toggled to flex when active */
+            display: none;
             flex-direction: column; align-items: center; gap: 10px;
             backdrop-filter: blur(15px);
             border: 1px solid rgba(255,255,255,0.1);
@@ -127,7 +121,6 @@
         .kb-key.action-clear { background: rgba(179,0,0,0.3); }
         .kb-key.action-close { background: rgba(0,86,179,0.4); }
 
-        /* ── Main seating content ── */
         #main-content-container { width: 100%; display: flex; flex-direction: column; align-items: center; flex-grow: 1; }
 
         .seating-page {
@@ -206,13 +199,10 @@
             <h1>Seating Chart</h1>
         </div>
 
-        <!-- Search bar -->
         <div class="search-container">
             <input type="text" id="searchInput" placeholder="TAP HERE TO SEARCH YOUR NAME" readonly>
         </div>
 
-        <!-- FIX: Keyboard is now OUTSIDE search-container, sits in normal flow.
-             When it appears it pushes table content downward naturally. -->
         <div id="custom-keyboard">
             <div class="kb-row">
                 <button class="kb-key">Q</button><button class="kb-key">W</button>
@@ -280,7 +270,7 @@
 
         let guests           = [];
         let lastGuestJson    = null;
-        let lastTablesPerPage = 15;   // FIX: track so we re-render when it changes
+        let lastTablesPerPage = 15;
         let currentLayout    = 'layout-grid';
         let tablesPerPage    = 15;
         let loopIntervalMs   = 8000;
@@ -388,11 +378,10 @@
 
             if (query === '') {
                 items.forEach(item => item.classList.remove('highlight', 'fade', 'hidden'));
-                document.querySelectorAll('.table-group').forEach(tg => tg.style.display = '');
-                document.querySelectorAll('.seating-page').forEach((p, i) =>
-                    p.classList.toggle('active', i === currentPageIndex)
-                );
                 document.querySelectorAll('.dot').forEach(d => d.style.display = 'block');
+                
+                // Revert to showing only the current page instead of all pages
+                showPage(currentPageIndex);
                 startLoop();
                 return;
             }
@@ -413,14 +402,16 @@
                 }
             });
 
-            // Show all pages so results across pages are visible
-            document.querySelectorAll('.seating-page').forEach(p => p.classList.add('active'));
+            // Filter pagination dots to only show pages with matches
             document.querySelectorAll('.dot').forEach((d, i) => {
                 d.style.display = pagesWithMatches.has(i) ? 'block' : 'none';
             });
 
-            if (pagesWithMatches.size > 0 && !pagesWithMatches.has(currentPageIndex)) {
-                showPage(Math.min(...Array.from(pagesWithMatches)));
+            // Automatically jump to the first page that contains a match, 
+            // rather than displaying all pages at once
+            if (pagesWithMatches.size > 0) {
+                const firstMatchPage = Math.min(...Array.from(pagesWithMatches));
+                showPage(firstMatchPage);
             }
         }
 
@@ -556,9 +547,6 @@
 
         // ─────────────────────────────────────────────
         // 9. FIREBASE LISTENER
-        // FIX: tablesPerPage change now triggers re-render.
-        // FIX: loopInterval change restarts the loop immediately.
-        // handleInteraction() NOT called here.
         // ─────────────────────────────────────────────
         db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
             const data = snapshot.val();
@@ -600,7 +588,6 @@
             idleTimeoutMs          = data.mh_idleTimeout   ? parseInt(data.mh_idleTimeout)  * 1000 : 15000;
             burnInEnabled          = data.mh_burnIn        ? (data.mh_burnIn === 'true')            : true;
 
-            // FIX: restart loop immediately if interval changed
             if (newLoopInterval !== loopIntervalMs) {
                 loopIntervalMs = newLoopInterval;
                 startLoop();
@@ -616,7 +603,7 @@
                 currentLayout = 'layout-grid';
             }
 
-            // FIX: re-render if guest data OR tablesPerPage changed
+            // Data Triggers
             const guestDataChanged     = data.mh_guestData && data.mh_guestData !== lastGuestJson;
             const tablesPerPageChanged = newTablesPerPage !== lastTablesPerPage;
 
