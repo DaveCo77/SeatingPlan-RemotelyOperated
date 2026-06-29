@@ -141,16 +141,12 @@
             align-items: center; 
             flex-grow: 1; 
             transform-origin: top center; 
-            /* Added margin-top to the transition to make the slide down smooth */
             transition: transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), margin-top 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.5s ease-in-out;
             margin-top: 0px;
         }
 
-        /* Triggered by JS when keyboard opens */
         body.kb-open #main-content-container {
-            /* Physically slides the grid down beneath the keyboard */
             margin-top: 340px; 
-            /* Shrinks it gently so the bottom tables don't fall off screen */
             transform: scale(0.85); 
         }
 
@@ -215,46 +211,50 @@
         .nav-btn.right { right: 1rem; }
         
         /* =========================================
-   FREEMIUM WATERMARK
-   ========================================= */
-.pixel-watermark {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 9999; 
-    pointer-events: none; /* Lets the user click through it */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    user-select: none;
-    background: repeating-linear-gradient(
-        -45deg,
-        transparent,
-        transparent 100px,
-        rgba(217, 122, 57, 0.03) 100px,
-        rgba(217, 122, 57, 0.03) 200px
-    );
-    /* Hidden by default, JavaScript will turn it on if 'free' */
-    display: none; 
-}
+           FREEMIUM WATERMARK
+           ========================================= */
+        .pixel-watermark {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 9999; 
+            pointer-events: none; /* Lets the user click through it */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            user-select: none;
+            background: repeating-linear-gradient(
+                -45deg,
+                transparent,
+                transparent 100px,
+                rgba(217, 122, 57, 0.03) 100px,
+                rgba(217, 122, 57, 0.03) 200px
+            );
+            /* Hidden by default, JavaScript will turn it on if 'free' */
+            display: none; 
+        }
 
-.pixel-watermark.show-watermark {
-    display: flex;
-}
+        .pixel-watermark.show-watermark {
+            display: flex;
+        }
 
-.pixel-watermark-text {
-    font-family: 'Big Shoulders Display', sans-serif;
-    font-size: 12vw; 
-    font-weight: 800;
-    color: rgba(217, 122, 57, 0.15); 
-    transform: rotate(-30deg);
-    white-space: nowrap;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-}
+        .pixel-watermark-text {
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 12vw; 
+            font-weight: 800;
+            color: rgba(217, 122, 57, 0.15); 
+            transform: rotate(-30deg);
+            white-space: nowrap;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
     </style>
 </head>
 <body class="active-mode">
+
+    <div id="freemium-watermark" class="pixel-watermark" aria-hidden="true">
+        <div class="pixel-watermark-text">Pixel Array Free Version</div>
+    </div>
 
     <div class="nav-btn left"  id="nav-prev">&#10094;</div>
     <div class="nav-btn right" id="nav-next">&#10095;</div>
@@ -338,6 +338,7 @@
         const mainContainer       = document.getElementById('main-content-container');
         const indicatorsContainer = document.getElementById('page-indicators');
         const keyboard            = document.getElementById('custom-keyboard');
+        const watermarkEl         = document.getElementById('freemium-watermark'); // Watermark DOM element
 
         let guests           = [];
         let lastGuestJson    = null;
@@ -616,7 +617,7 @@
         });
 
         // ---------------------------------------------------------
-        // 8. FIREBASE LISTENER
+        // 8. FIREBASE LISTENER & WATERMARK LOGIC
         // ---------------------------------------------------------
         db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
             const data = snapshot.val();
@@ -631,6 +632,15 @@
                 document.getElementById('logo-display').style.display = 'none';
                 return;
             }
+
+            // --- FREEMIUM WATERMARK LOGIC ---
+            const eventStatus = data.status;
+            if (eventStatus === 'free') {
+                watermarkEl.classList.add('show-watermark');
+            } else {
+                watermarkEl.classList.remove('show-watermark');
+            }
+            // --------------------------------
 
             root.style.setProperty('--bg-color',      data.mh_bgColor      || '#000000');
             root.style.setProperty('--text-color',     data.mh_textColor    || '#ffffff');
