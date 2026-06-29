@@ -624,6 +624,14 @@
         db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
             const data = snapshot.val();
 
+        // Toggle Search Bar Visibility
+        const searchContainer = document.querySelector('.search-container');
+        if (data.mh_searchEnabled === 'false') {
+        searchContainer.style.display = 'none';
+        } else {
+        searchContainer.style.display = 'block';
+        }
+            
             if (!data) {
                 guests = [];
                 lastGuestJson    = null;
