@@ -211,43 +211,40 @@
         .nav-btn.right { right: 1rem; }
         
         /* =========================================
-           FREEMIUM WATERMARK
-           ========================================= */
-        .pixel-watermark {
-            position: fixed;
-            top: 0; left: 0; right: 0; bottom: 0;
-            z-index: 9999; 
-            pointer-events: none; /* Lets the user click through it */
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            overflow: hidden;
-            user-select: none;
-            background: repeating-linear-gradient(
-                -45deg,
-                transparent,
-                transparent 100px,
-                rgba(217, 122, 57, 0.03) 100px,
-                rgba(217, 122, 57, 0.03) 200px
-            );
-            /* Hidden by default, JavaScript will turn it on if 'free' */
-            display: none; 
-        }
+   FREEMIUM BADGE ("Powered By")
+   ========================================= */
+.pixel-watermark {
+    position: fixed;
+    bottom: 40px; 
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 9999; 
+    pointer-events: none; /* Still lets the user click tables underneath it */
+    display: none; /* Hidden by default, JS toggles it */
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    opacity: 0.85; /* Slight transparency so it blends into the app */
+}
 
-        .pixel-watermark.show-watermark {
-            display: flex;
-        }
+.pixel-watermark.show-watermark {
+    display: flex;
+}
 
-        .pixel-watermark-text {
-            font-family: 'Big Shoulders Display', sans-serif;
-            font-size: 12vw; 
-            font-weight: 800;
-            color: rgba(217, 122, 57, 0.15); 
-            transform: rotate(-30deg);
-            white-space: nowrap;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-        }
+.pixel-watermark-text {
+    font-family: 'Big Shoulders Display', sans-serif;
+    font-size: 3.5rem; /* Quite large, as requested */
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7); 
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
+}
+
+.pixel-watermark-text strong {
+    font-weight: 800;
+    color: #d97a39; /* Pixel Array Orange */
+}
     </style>
 </head>
 <body class="active-mode">
