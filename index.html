@@ -10,8 +10,7 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Great+Vibes&family=Playfair+Di<bodsplay:ital,wght@0,400;0,600;1,400&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600&family=Lato:wght@300;400;700&family=Montserrat:wght@300;400;600&family=Oswald:wght@300;400;600&family=Raleway:wght@300;400;600&family=Poppins:wght@300;400;600&family=Nunito:wght@300;400;600&family=Merriweather:wght@300;400;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
-
+    <link href="https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cinzel:wght@400;600&family=Dancing+Script:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Roboto:wght@300;400;700&family=Open+Sans:wght@300;400;600&family=Lato:wght@300;400;700&family=Montserrat:wght@300;400;600&family=Oswald:wght@300;400;600&family=Raleway:wght@300;400;600&family=Poppins:wght@300;400;600&family=Nunito:wght@300;400;600&family=Merriweather:wght@300;400;700&family=Lora:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <style>
         :root {
             --bg-color: #000000;
@@ -24,7 +23,14 @@
             --guest-size: 1.2rem;
             --top-clearance: 25vh;
             /* ADD THIS NEW VARIABLE: */
-            --bg-image: url('QLD_Forum%20SeatplanBackground.jpg');
+// Background Image Logic
+            if (data.mh_bgImage === 'none') {
+                root.style.setProperty('--bg-image', 'none');
+            } else if (data.mh_bgImage) {
+                root.style.setProperty('--bg-image', `url('${data.mh_bgImage}')`);
+            } else {
+                root.style.setProperty('--bg-image', "url('QLD_Forum%20SeatplanBackground.jpg')");
+            }
         }
 
         /* Update your body CSS to use the variable instead of the hardcoded image: */
