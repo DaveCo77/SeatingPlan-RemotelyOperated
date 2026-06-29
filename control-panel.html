@@ -125,6 +125,17 @@
                         <option value="layout-list">Centered List</option>
                     </select>
                 </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Search Bar Visibility</label>
+                        <button class="reset-btn" onclick="resetSetting('mh_searchEnabled', 'searchToggle', 'true')">↺</button>
+                    </div>
+                    <select id="searchToggle">
+                        <option value="true">Visible (Touch Kiosks)</option>
+                        <option value="false">Hidden (Display Only)</option>
+                    </select>
+                </div>
             </div>
 
             <div class="grid-col">
@@ -184,7 +195,6 @@
                 <div class="control-group">
                     <label>Bulk Upload (XLSX)</label>
                     <input type="file" id="xlsxUpload" accept=".xlsx, .xls">
-                    <!-- FIX: disabled until connected -->
                     <button id="processXlsxBtn" class="action-btn" disabled>Execute Upload</button>
                 </div>
 
@@ -197,11 +207,9 @@
                         <input type="text" id="manualTitle" placeholder="Title">
                         <input type="text" id="manualTable" class="table-input" placeholder="Table">
                     </div>
-                    <!-- FIX: disabled until connected -->
                     <button id="addManualBtn" class="action-btn" disabled>Append Record</button>
                 </div>
 
-                <!-- FIX: disabled until connected -->
                 <button id="resetDataBtn" class="action-btn danger-btn" disabled>PURGE CURRENT EVENT DATA</button>
             </div>
 
@@ -311,6 +319,9 @@
         document.getElementById('bgColor').addEventListener('input', (e) => pushUpdate('mh_bgColor', e.target.value));
         document.getElementById('textColor').addEventListener('input', (e) => pushUpdate('mh_textColor', e.target.value));
         document.getElementById('burnInToggle').addEventListener('change', (e) => pushUpdate('mh_burnIn', e.target.value));
+        
+        // NEW EVENT LISTENER FOR SEARCH TOGGLE
+        document.getElementById('searchToggle').addEventListener('change', (e) => pushUpdate('mh_searchEnabled', e.target.value));
 
         function handleSlider(id, storageKey, valDisplayId, suffix = '') {
             document.getElementById(id).addEventListener('input', (e) => {
