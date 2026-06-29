@@ -148,7 +148,8 @@
                         <option value="'Cinzel', serif">Cinzel</option>
                         <option value="'Playfair Display', serif">Playfair Display</option>
                         <option value="'Montserrat', sans-serif">Montserrat</option>
-                        <option value="'Great Vibes', cursive">Great Vibes (Wedding Script)</option>
+                        <option value="'Dancing Script', cursive">Modern Wedding (Dancing Script)</option>
+                        <option value="'Alex Brush', cursive">Classic Wedding (Alex Brush)</option>
                     </select>
                 </div>
                 
@@ -161,16 +162,16 @@
                     <input type="color" id="textColor" value="#ffffff">
                 </div>
 
-                <div class="control-group">
+                <div class="control-group" style="margin-top: 1rem;">
                     <div class="control-header">
-                        <label>Custom Background URL</label>
-                        <button class="reset-btn" onclick="resetSetting('mh_bgImage', 'bgImage', '')">↺</button>
+                        <label>Background Theme</label>
+                        <button class="reset-btn" onclick="resetSetting('mh_bgImage', 'bgSelect', 'QLD_Forum%20SeatplanBackground.jpg')">↺</button>
                     </div>
-                    <input type="text" id="bgImage" placeholder="Paste direct image URL...">
-                    
-                    <button id="weddingThemeBtn" class="action-btn" style="border-color: #ff66b2; color: #ff66b2;">
-                        🌸 Apply Wedding Theme
-                    </button>
+                    <select id="bgSelect">
+                        <option value="QLD_Forum%20SeatplanBackground.jpg">Corporate Default (Dark Grid)</option>
+                        <option value="https://raw.githubusercontent.com/DaveCo77/SeatingPlan-RemotelyOperated/main/TableCo%20-%20Wedding%20Background.png">Wedding Elegance (Floral)</option>
+                        <option value="none">Pure Color (No Image)</option>
+                    </select>
                 </div>
 
                 <div class="section-title" style="margin-top: 3rem;">Typography Scaling</div>
@@ -326,24 +327,8 @@
         document.getElementById('burnInToggle').addEventListener('change', (e) => pushUpdate('mh_burnIn', e.target.value));
         document.getElementById('searchToggle').addEventListener('change', (e) => pushUpdate('mh_searchEnabled', e.target.value));
         
-        // Custom background URL listener
-        document.getElementById('bgImage').addEventListener('input', (e) => pushUpdate('mh_bgImage', e.target.value));
-
-        // WEDDING THEME MACRO BUTTON
-        document.getElementById('weddingThemeBtn').addEventListener('click', () => {
-            // Using the raw github URL so the image actually renders
-            const rawUrl = 'https://raw.githubusercontent.com/DaveCo77/SeatingPlan-RemotelyOperated/main/TableCo%20-%20Wedding%20Background.png';
-            
-            // Push background image
-            document.getElementById('bgImage').value = rawUrl;
-            pushUpdate('mh_bgImage', rawUrl);
-            
-            // Push wedding cursive font
-            document.getElementById('fontSelect').value = "'Great Vibes', cursive";
-            pushUpdate('mh_font', "'Great Vibes', cursive");
-            
-            showToast('🌸 Wedding Theme Applied!', '#ff66b2');
-        });
+        // Custom background dropdown listener
+        document.getElementById('bgSelect').addEventListener('change', (e) => pushUpdate('mh_bgImage', e.target.value));
 
         function handleSlider(id, storageKey, valDisplayId, suffix = '') {
             document.getElementById(id).addEventListener('input', (e) => {
