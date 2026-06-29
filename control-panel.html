@@ -20,7 +20,7 @@
         .control-header label { font-weight: bold; font-size: 0.95rem; text-transform: uppercase; }
         .reset-btn { background: transparent; color: var(--term-red); border: 1px solid var(--term-red); padding: 2px 8px; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; }
         .reset-btn:hover { background: var(--term-red); color: var(--term-bg); }
-        .control-group input, .control-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--term-red); background: rgba(255, 51, 51, 0.05); color: var(--term-red); box-sizing: border-box; font-family: inherit; outline: none; }
+        .control-group input[type="text"], .control-group input[type="color"], .control-group select { width: 100%; padding: 0.6rem; border: 1px solid var(--term-red); background: rgba(255, 51, 51, 0.05); color: var(--term-red); box-sizing: border-box; font-family: inherit; outline: none; }
         input[type="range"] { -webkit-appearance: none; background: transparent; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; height: 20px; width: 20px; background: var(--term-red); cursor: pointer; margin-top: -8px; }
         input[type="range"]::-webkit-slider-runnable-track { width: 100%; height: 4px; background: rgba(255, 51, 51, 0.3); }
@@ -148,6 +148,7 @@
                         <option value="'Cinzel', serif">Cinzel</option>
                         <option value="'Playfair Display', serif">Playfair Display</option>
                         <option value="'Montserrat', sans-serif">Montserrat</option>
+                        <option value="'Great Vibes', cursive">Great Vibes (Wedding Script)</option>
                     </select>
                 </div>
                 
@@ -158,6 +159,18 @@
                 <div class="control-group">
                     <div class="control-header"><label>Text Colour</label><button class="reset-btn" onclick="resetSetting('mh_textColor', 'textColor', '#ffffff')">↺</button></div>
                     <input type="color" id="textColor" value="#ffffff">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-header">
+                        <label>Custom Background URL</label>
+                        <button class="reset-btn" onclick="resetSetting('mh_bgImage', 'bgImage', '')">↺</button>
+                    </div>
+                    <input type="text" id="bgImage" placeholder="Paste direct image URL...">
+                    
+                    <button id="weddingThemeBtn" class="action-btn" style="border-color: #ff66b2; color: #ff66b2;">
+                        🌸 Apply Wedding Theme
+                    </button>
                 </div>
 
                 <div class="section-title" style="margin-top: 3rem;">Typography Scaling</div>
@@ -256,10 +269,6 @@
             toast._timer = setTimeout(() => toast.style.display = 'none', 3000);
         }
 
-        // ---------------------------------------------------------
-        // ENABLE / DISABLE DATA BUTTONS
-        // FIX: Prevents accidental overwrites before connect resolves
-        // ---------------------------------------------------------
         function setDataButtonsEnabled(enabled) {
             document.getElementById('processXlsxBtn').disabled = !enabled;
             document.getElementById('addManualBtn').disabled = !enabled;
@@ -273,7 +282,6 @@
             const inputVal = document.getElementById('activeEventId').value.trim();
             if (!inputVal) return showToast('Error: Event ID cannot be empty.', '#ff3333');
 
-            // Disable data buttons while we wait for the async fetch
             setDataButtonsEnabled(false);
             isConnected = false;
             currentEventId = inputVal;
@@ -281,8 +289,6 @@
             db.ref('seating_charts/' + currentEventId + '/mh_guestData').once('value').then((snapshot) => {
                 currentGuestsArray = snapshot.val() ? JSON.parse(snapshot.val()) : [];
                 isConnected = true;
-
-                // FIX: Only enable data buttons after connect resolves
                 setDataButtonsEnabled(true);
 
                 const status = document.getElementById('eventConnectStatus');
@@ -303,8 +309,7 @@
                 return;
             }
             const ref = db.ref('seating_charts/' + currentEventId + '/' + key);
-            // FIX: null deletes the key from Firebase (for resets)
-            if (value === null) {
+            if (value === null || value === "") {
                 ref.remove();
             } else {
                 ref.set(value);
@@ -319,9 +324,26 @@
         document.getElementById('bgColor').addEventListener('input', (e) => pushUpdate('mh_bgColor', e.target.value));
         document.getElementById('textColor').addEventListener('input', (e) => pushUpdate('mh_textColor', e.target.value));
         document.getElementById('burnInToggle').addEventListener('change', (e) => pushUpdate('mh_burnIn', e.target.value));
-        
-        // NEW EVENT LISTENER FOR SEARCH TOGGLE
         document.getElementById('searchToggle').addEventListener('change', (e) => pushUpdate('mh_searchEnabled', e.target.value));
+        
+        // Custom background URL listener
+        document.getElementById('bgImage').addEventListener('input', (e) => pushUpdate('mh_bgImage', e.target.value));
+
+        // WEDDING THEME MACRO BUTTON
+        document.getElementById('weddingThemeBtn').addEventListener('click', () => {
+            // Using the raw github URL so the image actually renders
+            const rawUrl = 'https://raw.githubusercontent.com/DaveCo77/SeatingPlan-RemotelyOperated/main/TableCo%20-%20Wedding%20Background.png';
+            
+            // Push background image
+            document.getElementById('bgImage').value = rawUrl;
+            pushUpdate('mh_bgImage', rawUrl);
+            
+            // Push wedding cursive font
+            document.getElementById('fontSelect').value = "'Great Vibes', cursive";
+            pushUpdate('mh_font', "'Great Vibes', cursive");
+            
+            showToast('🌸 Wedding Theme Applied!', '#ff66b2');
+        });
 
         function handleSlider(id, storageKey, valDisplayId, suffix = '') {
             document.getElementById(id).addEventListener('input', (e) => {
@@ -338,7 +360,6 @@
         handleSlider('tableSize', 'mh_tableSize', 'tableSizeVal', 'rem');
         handleSlider('guestSize', 'mh_guestSize', 'guestSizeVal', 'rem');
 
-        // FIX: resetSetting now properly deletes (null) from Firebase
         window.resetSetting = function(storageKey, elementId, defaultValue) {
             pushUpdate(storageKey, null);
             document.getElementById(elementId).value = defaultValue;
@@ -365,7 +386,6 @@
 
         // ---------------------------------------------------------
         // XLSX UPLOAD
-        // FIX: Changed || to && in row validation check
         // ---------------------------------------------------------
         document.getElementById('processXlsxBtn').addEventListener('click', () => {
             if (!isConnected) return showToast('Not connected.', '#ff3333');
@@ -377,7 +397,6 @@
                 const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
                 const json = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
 
-                // Detect header row
                 const start = (json[0] && json[0][0] && (
                     json[0][0].toString().toLowerCase().includes('first') ||
                     json[0][0].toString().toLowerCase().includes('name')
@@ -386,7 +405,6 @@
                 let added = 0;
                 for (let i = start; i < json.length; i++) {
                     const row = json[i];
-                    // FIX: && not || — both first name AND table must exist
                     if (row[0] && row[4] && row.length >= 5) {
                         currentGuestsArray.push({
                             first:   row[0] ? row[0].toString().trim() : '',
