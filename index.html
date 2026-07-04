@@ -658,13 +658,27 @@
                 return;
             }
 
-            // --- FREEMIUM WATERMARK LOGIC ---
+// --- FREEMIUM WATERMARK & TIMEBOMB LOGIC ---
             const eventStatus = data.status;
-            if (eventStatus === 'free') {
+            const currentTime = new Date().getTime(); // Get the exact time right now
+
+            if (eventStatus === 'free' || eventId === 'demo-event') {
+                // Standard free/demo version
                 watermarkEl.classList.add('show-watermark');
+            } else if (eventStatus === 'paid') {
+                // Check if the 5-day timebomb has gone off
+                if (data.expiresAt && currentTime > data.expiresAt) {
+                    console.log("License expired. Reverting to trial.");
+                    watermarkEl.classList.add('show-watermark'); 
+                } else {
+                    console.log("License active.");
+                    watermarkEl.classList.remove('show-watermark'); 
+                }
             } else {
-                watermarkEl.classList.remove('show-watermark');
+                // Failsafe: if no status is found, default to watermarked
+                watermarkEl.classList.add('show-watermark');
             }
+            // --------------------------------
             // --------------------------------
 
             root.style.setProperty('--bg-color',      data.mh_bgColor      || '#000000');
