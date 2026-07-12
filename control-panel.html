@@ -277,8 +277,16 @@
         }
 
         // ---------------------------------------------------------
-        // SESSION ROUTING
+        // SESSION ROUTING (UPDATED TO READ URL PARAMETERS)
         // ---------------------------------------------------------
+        
+        // Grab the event ID from the URL before connecting
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlEventId = urlParams.get('event');
+        if (urlEventId) {
+            document.getElementById('activeEventId').value = urlEventId;
+        }
+
         document.getElementById('setEventBtn').addEventListener('click', () => {
             const inputVal = document.getElementById('activeEventId').value.trim();
             if (!inputVal) return showToast('Error: Event ID cannot be empty.', '#ff3333');
