@@ -22,18 +22,9 @@
             --table-size: 1.4rem;
             --guest-size: 1.2rem;
             --top-clearance: 25vh;
-            /* ADD THIS NEW VARIABLE: */
-// Background Image Logic
-            if (data.mh_bgImage === 'none') {
-                root.style.setProperty('--bg-image', 'none');
-            } else if (data.mh_bgImage) {
-                root.style.setProperty('--bg-image', `url('${data.mh_bgImage}')`);
-            } else {
-                root.style.setProperty('--bg-image', "url('QLD_Forum%20SeatplanBackground.jpg')");
-            }
+            --bg-image: url('QLD_Forum%20SeatplanBackground.jpg');
         }
 
-        /* Update your body CSS to use the variable instead of the hardcoded image: */
         body, html {
             margin: 0; padding: 0; min-height: 100vh;
             font-family: var(--font-main);
@@ -41,7 +32,6 @@
             text-shadow: 0px 4px 15px rgba(0,0,0,0.9), 0px 1px 3px rgba(0,0,0,0.8);
             transition: color 0.3s, font-family 0.3s;
             background-color: var(--bg-color);
-            /* CHANGE THIS LINE: */
             background-image: var(--bg-image);
             background-size: cover;
             background-position: center center;
@@ -221,50 +211,46 @@
         /* =========================================
    FREEMIUM BADGE ("Powered By")
    ========================================= */
-.pixel-watermark {
-    position: fixed;
-    bottom: 40px; 
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999; 
-    pointer-events: none; /* Still lets the user click tables underneath it */
-    display: none; /* Hidden by default, JS toggles it */
-    align-items: center;
-    justify-content: center;
-    user-select: none;
-    opacity: 0.85; /* Slight transparency so it blends into the app */
-}
+        .pixel-watermark {
+            position: fixed;
+            bottom: 40px; 
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999; 
+            pointer-events: none;
+            display: none; 
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+            opacity: 0.85; 
+        }
 
-.pixel-watermark.show-watermark {
-    display: flex;
-}
+        .pixel-watermark.show-watermark {
+            display: flex;
+        }
 
-.pixel-watermark-text {
-    font-family: 'Big Shoulders Display', sans-serif;
-    font-size: 3.5rem; /* Quite large, as requested */
-    font-weight: 400;
-    color: rgba(255, 255, 255, 0.7); 
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
-}
+        .pixel-watermark-text {
+            font-family: 'Big Shoulders Display', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.7); 
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            text-shadow: 0px 4px 15px rgba(0,0,0,0.9);
+        }
 
-.pixel-watermark-text strong {
-    font-weight: 800;
-    color: #d97a39; /* Pixel Array Orange */
-}
+        .pixel-watermark-text strong {
+            font-weight: 800;
+            color: #d97a39; 
+        }
     </style>
 </head>
 <body class="active-mode">
     
 <!-- FREE VERSION WATERMARK -->
 <div id="freemium-watermark" class="pixel-watermark" aria-hidden="true">
-    <div class="pixel-watermark-text">Powered by <strong>Pixel Array</strong></div>
+    <div class="pixel-watermark-text">Powered by <strong>Pixel Array</strong> - www.pixelarray.com.au</div>
 </div>
-    
-    <div id="freemium-watermark" class="pixel-watermark" aria-hidden="true">
-        <div class="pixel-watermark-text">Powered by Pixel Array - www.pixelarray.com.au </div>
-    </div>
 
     <div class="nav-btn left"  id="nav-prev">&#10094;</div>
     <div class="nav-btn right" id="nav-next">&#10095;</div>
@@ -348,7 +334,7 @@
         const mainContainer       = document.getElementById('main-content-container');
         const indicatorsContainer = document.getElementById('page-indicators');
         const keyboard            = document.getElementById('custom-keyboard');
-        const watermarkEl         = document.getElementById('freemium-watermark'); // Watermark DOM element
+        const watermarkEl         = document.getElementById('freemium-watermark'); 
 
         let guests           = [];
         let lastGuestJson    = null;
@@ -632,8 +618,41 @@
         db.ref('seating_charts/' + eventId).on('value', (snapshot) => {
             const data = snapshot.val();
 
+            // --- FREEMIUM WATERMARK & TIMEBOMB LOGIC ---
+            // MOVED UP: Must evaluate before the !data check aborts the script
+            const eventStatus = data ? data.status : 'free'; 
+            const currentTime = new Date().getTime(); 
+
+            if (eventStatus === 'free' || eventId === 'demo-event' || eventId.startsWith('lite_')) {
+                watermarkEl.classList.add('show-watermark');
+            } else if (eventStatus === 'paid') {
+                if (data && data.expiresAt && currentTime > data.expiresAt) {
+                    console.log("License expired. Reverting to trial.");
+                    watermarkEl.classList.add('show-watermark'); 
+                } else {
+                    console.log("License active.");
+                    watermarkEl.classList.remove('show-watermark'); 
+                }
+            } else {
+                watermarkEl.classList.add('show-watermark');
+            }
+            // --------------------------------
+
+            if (!data) {
+                guests = [];
+                lastGuestJson    = null;
+                lastTablesPerPage = 15;
+                applyDefaults();
+                renderTables();
+                document.getElementById('floorplan-container').style.display = 'none';
+                document.getElementById('logo-display').style.display = 'none';
+                return;
+            }
+
             // Background Image Logic
-            if (data.mh_bgImage) {
+            if (data.mh_bgImage === 'none') {
+                root.style.setProperty('--bg-image', 'none');
+            } else if (data.mh_bgImage) {
                 root.style.setProperty('--bg-image', `url('${data.mh_bgImage}')`);
             } else {
                 root.style.setProperty('--bg-image', "url('QLD_Forum%20SeatplanBackground.jpg')");
@@ -646,40 +665,6 @@
         } else {
         searchContainer.style.display = 'block';
         }
-            
-            if (!data) {
-                guests = [];
-                lastGuestJson    = null;
-                lastTablesPerPage = 15;
-                applyDefaults();
-                renderTables();
-                document.getElementById('floorplan-container').style.display = 'none';
-                document.getElementById('logo-display').style.display = 'none';
-                return;
-            }
-
-// --- FREEMIUM WATERMARK & TIMEBOMB LOGIC ---
-            const eventStatus = data.status;
-            const currentTime = new Date().getTime(); // Get the exact time right now
-
-            if (eventStatus === 'free' || eventId === 'demo-event') {
-                // Standard free/demo version
-                watermarkEl.classList.add('show-watermark');
-            } else if (eventStatus === 'paid') {
-                // Check if the 5-day timebomb has gone off
-                if (data.expiresAt && currentTime > data.expiresAt) {
-                    console.log("License expired. Reverting to trial.");
-                    watermarkEl.classList.add('show-watermark'); 
-                } else {
-                    console.log("License active.");
-                    watermarkEl.classList.remove('show-watermark'); 
-                }
-            } else {
-                // Failsafe: if no status is found, default to watermarked
-                watermarkEl.classList.add('show-watermark');
-            }
-            // --------------------------------
-            // --------------------------------
 
             root.style.setProperty('--bg-color',      data.mh_bgColor      || '#000000');
             root.style.setProperty('--text-color',     data.mh_textColor    || '#ffffff');
