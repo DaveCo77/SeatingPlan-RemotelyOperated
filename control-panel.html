@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Operator Control Panel</title>
+    <title>Operator Control Panel | TableCo</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -12,7 +12,7 @@
         :root { --term-red: #ff3333; --term-bg: #0a0000; --term-glow: rgba(255, 51, 51, 0.4); }
         body { font-family: 'Courier New', Courier, monospace; background-color: var(--term-bg); color: var(--term-red); margin: 0; padding: 2rem; display: flex; justify-content: center; text-shadow: 0 0 5px var(--term-glow); background-image: linear-gradient(rgba(255, 51, 51, 0.03) 50%, rgba(0, 0, 0, 0.1) 50%); background-size: 100% 4px; }
         .operator-panel { width: 100%; max-width: 1600px; background: transparent; padding: 2.5rem; border: 2px solid var(--term-red); border-radius: 4px; box-shadow: inset 0 0 20px rgba(255, 51, 51, 0.1), 0 0 20px rgba(255, 51, 51, 0.1); }
-        .operator-panel h2 { margin-top: 0; font-size: 2rem; border-bottom: 2px solid var(--term-red); padding-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-bottom: 2rem; }
+        .operator-panel h2 { margin-top: 0; font-size: 2rem; border-bottom: 2px solid var(--term-red); padding-bottom: 0.8rem; text-transform: uppercase; letter-spacing: 2px; text-align: center; margin-bottom: 1rem; }
         .panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 3rem; align-items: start; }
         .section-title { font-size: 1.2rem; font-weight: bold; margin-bottom: 1.5rem; border-bottom: 1px dashed var(--term-red); padding-bottom: 5px; text-transform: uppercase; color: #fff; }
         .control-group { margin-bottom: 1.5rem; display: flex; flex-direction: column; }
@@ -33,12 +33,11 @@
         .manual-entry-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .manual-entry-row input.table-input { grid-column: span 2; text-align: center; }
 
-        /* Session Routing */
-        .session-box { border: 2px solid #00ff00; padding: 1rem; margin-bottom: 2rem; background: rgba(0,255,0,0.05); }
-        .session-box label, .session-box .section-title { color: #00ff00; border-color: #00ff00; }
-        .session-box input { border-color: #00ff00; color: #00ff00; }
-        .session-box button { border-color: #00ff00; color: #00ff00; }
-        .session-box button:hover { background-color: #00ff00; color: var(--term-bg); }
+        /* Session Header */
+        .session-header { border: 2px solid #00ff00; padding: 1rem; margin-bottom: 2rem; background: rgba(0,255,0,0.05); text-align: center; display: flex; justify-content: space-between; align-items: center;}
+        .session-header h3 { color: #00ff00; margin: 0; font-size: 1.2rem; }
+        .tier-badge { padding: 4px 10px; border: 1px solid #ffcc00; color: #ffcc00; font-weight: bold; background: rgba(255, 204, 0, 0.1); }
+        .tier-badge.pro { border-color: #00ff00; color: #00ff00; background: rgba(0, 255, 0, 0.1); }
 
         /* Status toast */
         #statusToast {
@@ -48,23 +47,24 @@
             font-size: 0.9rem; display: none; z-index: 999;
             box-shadow: 0 0 12px rgba(0,255,0,0.3);
         }
+
+        #criticalError {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; color: #ff0000; justify-content: center; align-items: center;
+            font-size: 2rem; z-index: 10000; text-align: center; font-family: monospace;
+        }
     </style>
 </head>
 <body>
 
-    <main class="operator-panel">
-        <h2>Control Terminal</h2>
+    <div id="criticalError">CRITICAL HALT:<br>NO SECURE EVENT UUID DETECTED IN ROUTING.</div>
+
+    <main class="operator-panel" id="mainPanel" style="display:none;">
+        <h2>TableCo Control Terminal</h2>
         
-        <div class="session-box">
-            <div class="section-title">Cloud Session Routing</div>
-            <div class="control-group" style="margin-bottom: 0;">
-                <label>Active Event ID</label>
-                <div style="display:flex; gap:10px;">
-                    <input type="text" id="activeEventId" value="demo-event" placeholder="e.g., QLD-Gala">
-                    <button id="setEventBtn" class="action-btn" style="margin-top:0; width:auto;">Connect</button>
-                </div>
-                <small id="eventConnectStatus" style="color: #00ff00; margin-top: 5px; display: none;"></small>
-            </div>
+        <div class="session-header">
+            <h3>SECURE LINK: [<span id="displayEventId"></span>]</h3>
+            <div id="tierBadge" class="tier-badge">FREE SANDBOX</div>
         </div>
 
         <div class="panel-grid">
@@ -209,11 +209,12 @@
                 <div class="control-group">
                     <label>Bulk Upload (XLSX)</label>
                     <input type="file" id="xlsxUpload" accept=".xlsx, .xls">
-                    <button id="processXlsxBtn" class="action-btn" disabled>Execute Upload</button>
+                    <!-- This button is dynamically overridden based on tier -->
+                    <button id="processXlsxBtn" class="action-btn" onclick="handleExcelUpload()">Execute Upload</button>
                 </div>
 
                 <div class="control-group">
-                    <label>Manual Entry Override</label>
+                    <label>Manual Entry Override <span id="guestCountDisplay" style="float:right; font-size:12px;">0 Guests</span></label>
                     <div class="manual-entry-row">
                         <input type="text" id="manualFirst" placeholder="First Name">
                         <input type="text" id="manualLast" placeholder="Last Name">
@@ -221,10 +222,10 @@
                         <input type="text" id="manualTitle" placeholder="Title">
                         <input type="text" id="manualTable" class="table-input" placeholder="Table">
                     </div>
-                    <button id="addManualBtn" class="action-btn" disabled>Append Record</button>
+                    <button id="addManualBtn" class="action-btn">Append Record</button>
                 </div>
 
-                <button id="resetDataBtn" class="action-btn danger-btn" disabled>PURGE CURRENT EVENT DATA</button>
+                <button id="resetDataBtn" class="action-btn danger-btn">PURGE CURRENT EVENT DATA</button>
             </div>
 
         </div>
@@ -251,11 +252,23 @@
         const db = firebase.database();
 
         // ---------------------------------------------------------
-        // STATE
+        // STATE & SECURITY ROUTING
         // ---------------------------------------------------------
-        let currentEventId = null;
+        const urlParams = new URLSearchParams(window.location.search);
+        const currentEventId = urlParams.get('event');
+        
+        // Hard halt if no secure UUID is present
+        if (!currentEventId) {
+            document.getElementById('criticalError').style.display = 'flex';
+            throw new Error("HALT: Missing secure event UUID in URL.");
+        }
+
+        // Passed security check - show panel
+        document.getElementById('mainPanel').style.display = 'block';
+        document.getElementById('displayEventId').innerText = currentEventId;
+
         let currentGuestsArray = [];
-        let isConnected = false;
+        let currentTier = 'free'; 
 
         // ---------------------------------------------------------
         // TOAST HELPER
@@ -270,53 +283,54 @@
             toast._timer = setTimeout(() => toast.style.display = 'none', 3000);
         }
 
-        function setDataButtonsEnabled(enabled) {
-            document.getElementById('processXlsxBtn').disabled = !enabled;
-            document.getElementById('addManualBtn').disabled = !enabled;
-            document.getElementById('resetDataBtn').disabled = !enabled;
-        }
-
         // ---------------------------------------------------------
-        // SESSION ROUTING (UPDATED TO READ URL PARAMETERS)
+        // REAL-TIME TIER & DATA LISTENER
         // ---------------------------------------------------------
-        
-        // Grab the event ID from the URL before connecting
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlEventId = urlParams.get('event');
-        if (urlEventId) {
-            document.getElementById('activeEventId').value = urlEventId;
-        }
-
-        document.getElementById('setEventBtn').addEventListener('click', () => {
-            const inputVal = document.getElementById('activeEventId').value.trim();
-            if (!inputVal) return showToast('Error: Event ID cannot be empty.', '#ff3333');
-
-            setDataButtonsEnabled(false);
-            isConnected = false;
-            currentEventId = inputVal;
-
-            db.ref('seating_charts/' + currentEventId + '/mh_guestData').once('value').then((snapshot) => {
-                currentGuestsArray = snapshot.val() ? JSON.parse(snapshot.val()) : [];
-                isConnected = true;
-                setDataButtonsEnabled(true);
-
-                const status = document.getElementById('eventConnectStatus');
-                status.innerText = `✓ Connected to [${currentEventId}] — ${currentGuestsArray.length} guests loaded.`;
-                status.style.display = 'block';
-                showToast(`Connected to [${currentEventId}]`);
-            }).catch(err => {
-                showToast('Connection failed: ' + err.message, '#ff3333');
-            });
+        // 1. Listen for Tier Status changes
+        db.ref('seating_charts/' + currentEventId + '/status').on('value', (snapshot) => {
+            currentTier = snapshot.val() || 'free';
+            updateUIForTier();
         });
+
+        // 2. Listen for Guest Data changes to update counts
+        db.ref('seating_charts/' + currentEventId + '/mh_guestData').on('value', (snapshot) => {
+            currentGuestsArray = snapshot.val() ? JSON.parse(snapshot.val()) : [];
+            document.getElementById('guestCountDisplay').innerText = `${currentGuestsArray.length} Guests`;
+        });
+
+        function updateUIForTier() {
+            const xlsxBtn = document.getElementById('processXlsxBtn');
+            const xlsxInput = document.getElementById('xlsxUpload');
+            const badge = document.getElementById('tierBadge');
+
+            if (currentTier === 'free') {
+                // Lock Bulk Upload
+                xlsxBtn.innerText = "[ EXPORT LOCKED - UPGRADE TO PRO ]";
+                xlsxBtn.style.borderColor = "#444";
+                xlsxBtn.style.color = "#444";
+                // Redirect to your Stripe Link on click (You can update this URL to your actual Stripe TableCo link)
+                xlsxBtn.onclick = () => window.open('https://buy.stripe.com/4gM6oBdhbdNR5onaOxbwk04', '_blank');
+                xlsxInput.disabled = true;
+                
+                badge.className = 'tier-badge';
+                badge.innerText = 'FREE SANDBOX (Max 30 Guests)';
+            } else {
+                // Unlock Bulk Upload
+                xlsxBtn.innerText = "Execute Upload";
+                xlsxBtn.style.borderColor = "var(--term-red)";
+                xlsxBtn.style.color = "var(--term-red)";
+                xlsxBtn.onclick = handleExcelUpload;
+                xlsxInput.disabled = false;
+                
+                badge.className = 'tier-badge pro';
+                badge.innerText = 'PRO LICENSE ACTIVE';
+            }
+        }
 
         // ---------------------------------------------------------
         // CORE CLOUD PUSH
         // ---------------------------------------------------------
         function pushUpdate(key, value) {
-            if (!isConnected || !currentEventId) {
-                showToast('Error: Not connected to an event.', '#ff3333');
-                return;
-            }
             const ref = db.ref('seating_charts/' + currentEventId + '/' + key);
             if (value === null || value === "") {
                 ref.remove();
@@ -334,8 +348,6 @@
         document.getElementById('textColor').addEventListener('input', (e) => pushUpdate('mh_textColor', e.target.value));
         document.getElementById('burnInToggle').addEventListener('change', (e) => pushUpdate('mh_burnIn', e.target.value));
         document.getElementById('searchToggle').addEventListener('change', (e) => pushUpdate('mh_searchEnabled', e.target.value));
-        
-        // Custom background dropdown listener
         document.getElementById('bgSelect').addEventListener('change', (e) => pushUpdate('mh_bgImage', e.target.value));
 
         function handleSlider(id, storageKey, valDisplayId, suffix = '') {
@@ -378,10 +390,9 @@
         });
 
         // ---------------------------------------------------------
-        // XLSX UPLOAD
+        // XLSX UPLOAD LOGIC
         // ---------------------------------------------------------
-        document.getElementById('processXlsxBtn').addEventListener('click', () => {
-            if (!isConnected) return showToast('Not connected.', '#ff3333');
+        function handleExcelUpload() {
             const file = document.getElementById('xlsxUpload').files[0];
             if (!file) return showToast('Error: No file selected.', '#ff3333');
 
@@ -414,13 +425,17 @@
                 showToast(`✓ ${added} records uploaded. Total: ${currentGuestsArray.length}`);
             };
             reader.readAsArrayBuffer(file);
-        });
+        }
 
         // ---------------------------------------------------------
         // MANUAL ENTRY
         // ---------------------------------------------------------
         document.getElementById('addManualBtn').addEventListener('click', () => {
-            if (!isConnected) return showToast('Not connected.', '#ff3333');
+            // Apply Free Tier Cap
+            if (currentTier === 'free' && currentGuestsArray.length >= 30) {
+                showToast('FREE TIER LIMIT REACHED (30 Guests Max). Please Upgrade.', '#ffcc00');
+                return;
+            }
 
             const f  = document.getElementById('manualFirst').value.trim();
             const l  = document.getElementById('manualLast').value.trim();
@@ -446,19 +461,14 @@
         // PURGE DATA
         // ---------------------------------------------------------
         document.getElementById('resetDataBtn').addEventListener('click', () => {
-            if (!isConnected) return showToast('Not connected.', '#ff3333');
             if (confirm(`Proceed with complete data purge for event [${currentEventId}]?\n\nThis cannot be undone.`)) {
-                db.ref('seating_charts/' + currentEventId).remove().then(() => {
-                    currentGuestsArray = [];
-                    showToast(`Event [${currentEventId}] purged.`);
-                }).catch(err => {
-                    showToast('Purge failed: ' + err.message, '#ff3333');
-                });
+                // Ensure we only purge the configuration and guest data, NOT the tier status
+                db.ref('seating_charts/' + currentEventId + '/mh_guestData').remove();
+                db.ref('seating_charts/' + currentEventId + '/mh_bgImage').remove();
+                db.ref('seating_charts/' + currentEventId + '/mh_floorplan_img').remove();
+                showToast(`Event [${currentEventId}] data purged.`);
             }
         });
-
-        // Auto-connect on load
-        document.getElementById('setEventBtn').click();
     </script>
 </body>
 </html>
