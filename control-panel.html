@@ -298,22 +298,27 @@
             document.getElementById('guestCountDisplay').innerText = `${currentGuestsArray.length} Guests`;
         });
 
-        function updateUIForTier() {
+       function updateUIForTier() {
             const xlsxBtn = document.getElementById('processXlsxBtn');
             const xlsxInput = document.getElementById('xlsxUpload');
             const badge = document.getElementById('tierBadge');
 
             if (currentTier === 'free') {
-                // Lock Bulk Upload
+                // Lock Bulk Upload (Acts as a secondary upgrade button)
                 xlsxBtn.innerText = "[ EXPORT LOCKED - UPGRADE TO PRO ]";
                 xlsxBtn.style.borderColor = "#444";
                 xlsxBtn.style.color = "#444";
-                // Redirect to your Stripe Link on click (You can update this URL to your actual Stripe TableCo link)
-                xlsxBtn.onclick = () => window.open('https://buy.stripe.com/4gM6oBdhbdNR5onaOxbwk04', '_blank');
+                xlsxBtn.onclick = () => window.open('https://buy.stripe.com/YOUR_TABLECO_LINK_HERE', '_blank');
                 xlsxInput.disabled = true;
                 
+                // Transform the top badge into a prominent Upgrade button
                 badge.className = 'tier-badge';
-                badge.innerText = 'FREE SANDBOX (Max 30 Guests)';
+                badge.style.cursor = 'pointer';
+                badge.style.borderColor = 'var(--term-red)';
+                badge.style.color = 'var(--term-red)';
+                badge.style.background = 'rgba(255, 51, 51, 0.1)';
+                badge.innerHTML = 'FREE TIER (Max 30 Guests) &mdash; <span style="text-decoration: underline;">UPGRADE TO PRO NOW</span>';
+                badge.onclick = () => window.open('https://buy.stripe.com/YOUR_TABLECO_LINK_HERE', '_blank');
             } else {
                 // Unlock Bulk Upload
                 xlsxBtn.innerText = "Execute Upload";
@@ -322,8 +327,11 @@
                 xlsxBtn.onclick = handleExcelUpload;
                 xlsxInput.disabled = false;
                 
+                // Reset badge to Pro status
                 badge.className = 'tier-badge pro';
-                badge.innerText = 'PRO LICENSE ACTIVE';
+                badge.style.cursor = 'default';
+                badge.onclick = null;
+                badge.innerHTML = 'PRO LICENSE ACTIVE';
             }
         }
 
